@@ -15,6 +15,8 @@ class PsdController {
     this.jobs = new Map();
     this.lastOutput = null;
     fs.mkdirSync(path.join(stateRoot, 'jobs'), { recursive: true });
+    this.configFile = path.join(stateRoot, 'config.json');
+    if (!fs.existsSync(this.configFile)) fs.writeFileSync(this.configFile, '{}\n');
   }
   get busy() { return [...this.jobs.values()].some(job => ['inspect', 'preview', 'export', 'diagnose'].includes(job.operation)); }
   command() {
@@ -24,6 +26,14 @@ class PsdController {
   async run(request) {
     if (!request || !['workbook', 'inspect', 'preview', 'export', 'diagnose', 'logs'].includes(request.operation)) throw new Error('PSD 操作无效');
     if (this.busy && request.operation !== 'logs' && request.operation !== 'workbook') throw new Error('PSD 任务正在处理');
+    const defaults = JSON.parse(fs.readFileSync(this.configFile, 'utf8').replace(/^\uFEFF/, ''));
+    if (!defaults || typeof defaults !== 'object' || Array.isArray(defaults)) throw new Error('PSD 配置文件应为 JSON 对象');
+    const settings = Object.assign(Object.create(null), defaults);
+    for (const [key, value] of Object.entries(request.settings || {})) {
+      if (value && typeof value === 'object' && !Array.isArray(value)) settings[key] = { ...defaults[key], ...value };
+      else settings[key] = value;
+    }
+    request = { ...request, settings };
     const id = crypto.randomUUID();
     const directory = path.join(this.stateRoot, 'jobs', id);
     fs.mkdirSync(directory);
@@ -84,3 +94,4 @@ class PsdController {
   }
 }
 module.exports = { PsdController };
+

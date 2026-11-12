@@ -3,11 +3,12 @@ import json
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import cli
-from service import configuration, matches, output_name, publish, workbook
+from service import configuration, export_batch, matches, output_name, photoshop, publish, workbook
 
 
 class BatchTests(unittest.TestCase):
@@ -67,6 +68,25 @@ class BatchTests(unittest.TestCase):
         self.assertEqual([language["code"] for language in book["languages"]], ["de", "fr", "ja"])
         self.assertEqual(len(book["rows"]), 3)
 
+    def test_workbook_hash(self):
+        path = cli.RESOURCE_ROOT / "samples/测试 样本/英文首列 变体.xlsx"
+        self.assertEqual(workbook(path, self.config)["sha256"], cli.file_hash(path))
+
+    def test_changed_psd_rejected_before_bridge(self):
+        path = self.folder / "中文 文件.psd"
+        path.write_bytes(b"changed")
+        with patch.object(cli, "invoke_bridge") as bridge:
+            with self.assertRaisesRegex(RuntimeError, "PSD 自确认匹配后发生变化"):
+                photoshop("translate", path, self.config, expected_hash="old")
+            bridge.assert_not_called()
+
+    def test_changed_excel_rejected(self):
+        request = {"files": [], "excel": "sample.xlsx", "output_dir": str(self.folder), "excel_sha256": "old"}
+        with patch("service.inspect_files", return_value=[]), patch("service.workbook", return_value={"sha256": "new"}):
+            with self.assertRaisesRegex(RuntimeError, "Excel 自确认匹配后发生变化"):
+                export_batch(request, self.config, self.folder)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+

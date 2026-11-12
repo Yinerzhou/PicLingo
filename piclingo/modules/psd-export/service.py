@@ -26,7 +26,8 @@ def configuration(settings, job):
     base = json.loads((cli.RESOURCE_ROOT / "config.json").read_text(encoding="utf-8-sig"))
     allowed = {"worksheet", "header_row", "match_by", "hidden_layers", "smart_objects", "duplicates",
                "empty_translation", "unmatched", "missing_font", "output", "overflow", "font_fallbacks",
-               "rtl_enabled", "photoshop", "language_aliases", "language_names", "font_paths"}
+               "rtl_enabled", "photoshop", "language_aliases", "language_names", "font_paths",
+               "key_headers", "source_headers", "source_language", "text_normalization"}
     for key, value in settings.items():
         if key not in allowed:
             raise ValueError("未知配置项：" + key)
@@ -45,12 +46,13 @@ def workbook(path, config):
     path = Path(path).expanduser().resolve(strict=True)
     if path.suffix.lower() != ".xlsx":
         raise ValueError("请选择 XLSX 文件")
+    original_hash = cli.file_hash(path)
     with path.open("rb") as stream:
         book = load_workbook(stream, read_only=True, data_only=False)
         try:
             sheets = book.sheetnames
             if config["worksheet"] is None and len(sheets) > 1:
-                return {"sheets": sheets, "needs_sheet": True, "languages": [], "rows": [], "warnings": []}
+                return {"sheets": sheets, "needs_sheet": True, "languages": [], "rows": [], "warnings": [], "sha256": original_hash}
             sheet = book[config["worksheet"] or sheets[0]]
             header = next(sheet.iter_rows(min_row=config["header_row"], max_row=config["header_row"], values_only=True), ())
             reserved = {header_token(value) for value in config["key_headers"] + config["source_headers"]}
@@ -81,11 +83,13 @@ def workbook(path, config):
             row["translations"][code] = entry["translation"]
     if not available:
         raise ValueError("未识别到目标语言列，请检查表头与语言映射")
+    if cli.file_hash(path) != original_hash:
+        raise RuntimeError("Excel 在读取期间发生变化，请重新导入")
     return {"sheets": sheets, "worksheet": config["worksheet"] or sheets[0], "needs_sheet": False,
-            "languages": available, "rows": list(rows.values()), "warnings": warnings}
+            "languages": available, "rows": list(rows.values()), "warnings": warnings, "sha256": original_hash}
 
 
-def photoshop(action, path, config, entries=(), output=None, target=None):
+def photoshop(action, path, config, entries=(), output=None, target=None, expected_hash=None):
     run = cli.ROOT / "runs" / (time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:8])
     run.mkdir(parents=True)
     request = {"action": action, "input": str(path), "output": str(output) if output else None,
@@ -94,6 +98,8 @@ def photoshop(action, path, config, entries=(), output=None, target=None):
                "started_file": str(run / "started.txt"),
                "deadline": int((time.time() + config["photoshop"]["task_timeout_seconds"] - 2) * 1000)}
     before = cli.file_hash(path)
+    if expected_hash and before != expected_hash:
+        raise RuntimeError("PSD 自确认匹配后发生变化，请重新读取匹配：" + str(path))
     log = cli.Journal(run / "run.jsonl")
     with cli.photoshop_lock():
         cli.invoke_bridge(config, cli.make_driver(request, run), run, log)
@@ -104,6 +110,7 @@ def photoshop(action, path, config, entries=(), output=None, target=None):
         raise RuntimeError("%s：%s；日志 %s" % (result.get("failed_step"), result.get("error"), run))
     result["run_dir"] = str(run)
     result["source_unchanged"] = True
+    result["source_sha256"] = before
     return result
 
 
@@ -196,6 +203,8 @@ def export_batch(request, config, job):
     folder.mkdir(parents=True, exist_ok=True)
     documents = inspect_files(request["files"], config)
     book = workbook(request["excel"], config)
+    if request.get("excel_sha256") and book.get("sha256") != request["excel_sha256"]:
+        raise RuntimeError("Excel 自确认匹配后发生变化，请重新导入并匹配")
     if book["needs_sheet"]:
         raise ValueError("请先选择 Excel 工作表")
     mapping = matches(documents, book, config, request.get("manual", {}))
@@ -224,6 +233,9 @@ def export_batch(request, config, job):
                 try:
                     if not document["ok"]:
                         raise RuntimeError(document["error"])
+                    expected = request.get("expected_hashes", {}).get(document["path"], document["source_sha256"])
+                    if expected != document["source_sha256"]:
+                        raise RuntimeError("PSD 自确认匹配后发生变化，请重新读取匹配")
                     entries = []
                     for match in mapping["layers"]:
                         if match["file"] != document["path"] or not match["row"]:
@@ -238,7 +250,7 @@ def export_batch(request, config, job):
                             decision = resolver.choose(layer["fonts"]["names"], translation, fallback)
                         entries.append({"row": row["row"], "route": match["route"], "match": "", "translation": translation,
                                         "font_decision": decision})
-                    ps_result = photoshop("translate", Path(document["path"]), config, entries, staging, language)
+                    ps_result = photoshop("translate", Path(document["path"]), config, entries, staging, language, expected_hash=expected)
                     if config["output"]["format"] == "png":
                         if list(cli.inspect_png(staging)) != ps_result["dimensions"]:
                             raise ValueError("导出尺寸不一致")
@@ -325,3 +337,4 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+

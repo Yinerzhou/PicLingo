@@ -137,6 +137,8 @@
   $('psd-export').addEventListener('click', () => action(async () => {
     $('psd-progress').value = 0; $('psd-results').replaceChildren(); status('正在导出');
     const report = await api.psdRun({ operation: 'export', files: state.files, excel: state.excel, settings: settings(),
+      expected_hashes: Object.fromEntries(state.preview.documents.filter(document => document.ok).map(document => [document.path, document.source_sha256])),
+      excel_sha256: state.book.sha256,
       manual: state.manual, languages: [...document.querySelectorAll('#psd-languages input:checked')].map(input => input.value),
       naming: $('psd-naming').value, output_dir: state.output });
     state.report = report;
@@ -166,3 +168,4 @@
   }
   ready();
 })();
+
