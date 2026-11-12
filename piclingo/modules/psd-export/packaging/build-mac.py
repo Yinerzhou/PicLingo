@@ -104,7 +104,12 @@ def main():
         config["mac"]["identity"] = "-"
     (project / "electron-builder.json").write_text(json.dumps(config, indent=2), encoding="utf-8")
     run(["npm", "install", "--no-audit", "--no-fund"], cwd=project)
-    run([project / "node_modules/.bin/electron-builder", "--config", "electron-builder.json", "--mac", "--" + args.arch, "--publish", "never"], cwd=project)
+    builder_environment = os.environ.copy()
+    if not args.signed:
+        for key in ["CSC_LINK", "CSC_KEY_PASSWORD", "APPLE_ID", "APPLE_APP_SPECIFIC_PASSWORD", "APPLE_TEAM_ID"]:
+            builder_environment.pop(key, None)
+        builder_environment["CSC_IDENTITY_AUTO_DISCOVERY"] = "false"
+    run([project / "node_modules/.bin/electron-builder", "--config", "electron-builder.json", "--mac", "--" + args.arch, "--publish", "never"], cwd=project, env=builder_environment)
     app_bundle = output / ("mac-arm64" if args.arch == "arm64" else "mac") / "PicLingo.app"
     run(["codesign", "--verify", "--deep", "--strict", "--verbose=2", app_bundle])
     if args.signed:

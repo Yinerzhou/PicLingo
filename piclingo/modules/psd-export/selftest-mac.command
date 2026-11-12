@@ -18,7 +18,11 @@ if [ ! -x .venv/bin/python ]; then
     python3 -m venv .venv
 fi
 .venv/bin/python -c 'import sys; assert sys.version_info >= (3,10), "需要 Python 3.10+"'
-.venv/bin/python -m pip install --no-index --find-links dependencies -r requirements.txt
+if [ -d dependencies ]; then
+    .venv/bin/python -m pip install --no-index --find-links dependencies -r requirements.txt
+else
+    .venv/bin/python -m pip install -r requirements.txt
+fi
 .venv/bin/python cli.py --diagnose
 .venv/bin/python cli.py --psd 'samples/测试 样本/最小 测试 1层.psd' \
   --excel 'samples/测试 样本/翻译 模板.xlsx' --lang de --out "$target_dir/单层_de.png"

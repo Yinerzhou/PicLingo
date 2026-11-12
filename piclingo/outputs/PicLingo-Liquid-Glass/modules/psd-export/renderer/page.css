@@ -15,7 +15,7 @@
 .psd-table th, .psd-table td { text-align: left; vertical-align: top; padding: 9px; border-bottom: 1px solid var(--glass-border); min-width: 120px; max-width: 320px; overflow-wrap: anywhere; }
 .psd-table th { font-weight: 500; color: var(--text-secondary); }
 .psd-table td:first-child { min-width: 180px; }
-.psd-warning { color: #b42318; }
+.psd-warning { color: #9f1d15; }
 #psd-page progress { width: 100%; accent-color: var(--accent-strong); height: 8px; }
 #psd-page details { margin-top: 12px; }
 #psd-layer-tree { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 300px; overflow: auto; }
