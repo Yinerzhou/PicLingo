@@ -2,9 +2,6 @@ name: Build PicLingo macOS
 on:
   pull_request:
     branches: [main]
-  push:
-    branches:
-      - 'codex/piclingo-mac-*'
   workflow_dispatch:
     inputs:
       signed:
@@ -14,6 +11,9 @@ on:
         type: boolean
 permissions:
   contents: read
+concurrency:
+  group: piclingo-macos-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 jobs:
   build:
     strategy:
@@ -44,9 +44,11 @@ jobs:
         run: |
           set -euo pipefail
           if [ -d piclingo ]; then cd piclingo; fi
-          signing=()
-          if [ "$SIGNED_BUILD" = "true" ]; then signing+=(--signed); fi
-          python modules/psd-export/packaging/build-mac.py --arch '${{ matrix.arch }}' "${signing[@]}"
+          if [ "$SIGNED_BUILD" = "true" ]; then
+            python modules/psd-export/packaging/build-mac.py --arch '${{ matrix.arch }}' --signed
+          else
+            python modules/psd-export/packaging/build-mac.py --arch '${{ matrix.arch }}'
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: PicLingo-mac-${{ matrix.arch }}
