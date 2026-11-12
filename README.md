@@ -2,6 +2,6 @@
 
 图片翻译与 PSD 多语言批量出图桌面客户端。
 
-现有图片翻译、OCR 和离线语言包保留。PSD 模块通过 Photoshop 原生渲染，读取 Excel 译文生成 PNG、JPG 或可编辑 PSD。
+项目源代码位于 `piclingo/`。Windows 1.2.0 已通过本地安装与功能验收，macOS Apple Silicon 与 Intel 通过 GitHub Actions 分别构建。
 
-Windows 1.2.0 已在本地完成安装和功能测试。macOS Apple Silicon 与 Intel 的构建、运行及签名状态以构建记录为准。
+PSD 模块使用 Photoshop 原生渲染和 Excel 译文。macOS Photoshop 调用、复杂排版及实验性 RTL 需客户样张验收。

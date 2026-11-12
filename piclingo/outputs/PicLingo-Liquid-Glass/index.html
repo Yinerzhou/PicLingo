@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-CN" data-native-material="fallback">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: piclingo-media:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta name="description" content="图译工坊 PicLingo · 本地图片翻译客户端">
+  <title>图译工坊 PicLingo</title>
+  <link rel="icon" type="image/png" href="assets/app.png">
+  <link rel="stylesheet" href="styles.css">
+  <script src="desktop-bridge.js" defer></script>
+  <script src="app.js" defer></script>
+  <link rel="stylesheet" href="modules/psd-export/renderer/page.css">
+  <script src="modules/psd-export/renderer/entry.js" defer></script>
+  <script src="modules/psd-export/renderer/settings.js" defer></script>
+</head>
+<body>
+  <svg class="icon-library" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z"/></symbol>
+      <symbol id="i-images" viewBox="0 0 24 24"><rect x="7" y="3" width="14" height="15" rx="3"/><path d="M17 21H6a3 3 0 0 1-3-3V8m4 6 4-4 4 4 2-2 4 4"/><circle cx="16.5" cy="7.5" r=".6"/></symbol>
+      <symbol id="i-language" viewBox="0 0 24 24"><path d="M3 5h12M9 3v2m-3 0c0 5 3.5 8 7 10m-1-10c0 5-3.5 8-7 10m10 6 4-11 4 11m-6.8-3h5.6"/></symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h5m4 0h7M4 18h9m4 0h3M4 12h9m4 0h3"/><circle cx="11" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="18" r="2"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+      <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h15m-4-4 4 4-4 4M20 16H5m4 4-4-4 4-4"/></symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8 12 3 3 5-6"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h5l3 3h6a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7h18"/></symbol>
+      <symbol id="i-fit" viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/><rect x="7" y="7" width="10" height="10" rx="2"/></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24"><path d="m15 4 5 5M4 20l5-1L21 7a2 2 0 0 0-4-4L5 15l-1 5Z"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v.2"/></symbol>
+      <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r=".7"/><circle cx="12" cy="12" r=".7"/><circle cx="19" cy="12" r=".7"/></symbol>
+    </defs>
+  </svg>
+
+  <main class="app-window" aria-label="图译工坊桌面客户端">
+    <header class="window-chrome" data-tauri-drag-region>
+      <div class="chrome-title" data-tauri-drag-region><img src="assets/app.png" width="18" height="18" alt="">图译工坊 <span class="chrome-divider">/</span> PicLingo</div>
+      <div class="titlebar-drag-space" data-tauri-drag-region></div>
+      <div class="window-controls" role="group" aria-label="窗口控制">
+        <button class="window-control" data-window-action="minimize" aria-label="最小化" title="最小化"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
+        <button class="window-control" id="maximize-button" data-window-action="toggleMaximize" aria-label="最大化" title="最大化"><svg id="maximize-icon" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx=".5"/></svg></button>
+        <button class="window-control window-close" data-window-action="close" aria-label="关闭窗口" title="关闭"><svg viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></svg></button>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <aside class="sidebar glass" aria-label="侧边栏">
+        <a class="brand" href="index.html" aria-label="图译工坊首页">
+          <img src="assets/app.png" width="38" height="38" alt="图译工坊图标">
+          <span><strong>图译工坊</strong><small>本地图片翻译</small></span>
+        </a>
+
+        <nav class="navigation" aria-label="主要导航">
+          <button class="nav-item active" aria-current="page" id="workspace-nav"><svg><use href="#i-images"/></svg><span>图片翻译</span><span class="nav-count" id="nav-count">0</span></button>
+          <button class="nav-item" id="psd-nav"><svg><use href="#i-grid"/></svg><span>PSD 出图</span></button>
+          <button class="nav-item" data-open="languages-dialog"><svg><use href="#i-language"/></svg><span>离线语言包</span></button>
+          <button class="nav-item" data-open="settings-dialog"><svg><use href="#i-sliders"/></svg><span>设置</span></button>
+        </nav>
+
+        <div class="sidebar-section-title"><span>当前项目</span><button class="icon-button mini" id="reset-button" aria-label="清空图片队列" title="清空队列"><svg><use href="#i-dots"/></svg></button></div>
+        <div id="file-list" class="file-list" aria-label="图片列表"></div>
+        <button class="add-more" data-import><svg><use href="#i-plus"/></svg>添加更多图片</button>
+        <p class="drop-hint">也可以将图片拖放到窗口</p>
+
+        <div class="sidebar-spacer"></div>
+        <div class="local-card">
+          <span class="icon-tile sage"><svg><use href="#i-shield"/></svg></span>
+          <strong>本地处理</strong>
+          <p>图片与处理结果<br>保留在你的电脑中</p>
+          <span class="local-note"><i></i>本地文件</span>
+        </div>
+        <div class="sidebar-footer"><span class="avatar">译</span><div><strong>当前用户</strong><small>PicLingo · 本地客户端</small></div></div>
+      </aside>
+
+      <section class="main-content" aria-label="图片翻译工作台">
+        <header class="page-header">
+          <div><h1>图片翻译</h1><p>导入图片，选择目标语言，批量生成译图。</p></div>
+          <div class="header-actions"><button class="button ghost" data-import-folder><svg><use href="#i-folder"/></svg>导入文件夹</button><button class="button secondary" id="export-all" disabled><svg><use href="#i-download"/></svg>批量导出</button><button class="button secondary" data-import><svg><use href="#i-plus"/></svg>导入图片</button></div>
+        </header>
+
+        <section class="translation-controls glass" aria-label="翻译设置">
+          <label class="language-field"><span class="control-label">原文语言</span><span class="select-wrap"><span class="language-symbol" id="source-symbol">中</span><select id="source-language" aria-label="原文语言"><option value="zh">简体中文</option><option value="en">English</option><option value="auto">自动识别（中 / 英）</option></select><svg><use href="#i-chevron"/></svg></span></label>
+          <button class="icon-button swap-button" id="swap-language" aria-label="交换原文与目标语言" title="交换语言"><svg><use href="#i-swap"/></svg></button>
+          <label class="language-field"><span class="control-label">目标语言</span><span class="select-wrap"><span class="language-symbol accent-symbol" id="target-symbol">EN</span><select id="target-language" aria-label="目标语言"><option value="en">English</option><option value="zh">简体中文</option></select><svg><use href="#i-chevron"/></svg></span></label>
+          <div class="control-separator"></div>
+          <div class="offline-control"><span class="control-label">离线模式</span><label class="switch"><input type="checkbox" id="offline-switch" checked aria-label="离线模式"><span class="switch-track"></span></label></div>
+          <span class="ready-tag" id="mode-status"><span></span>中英双向</span>
+        </section>
+
+        <section class="preview-section" aria-label="图片对照预览">
+          <div class="section-toolbar">
+            <div class="section-name"><h2>图片工作台</h2><span class="quiet-tag" id="image-count">0 张图片</span></div>
+            <div class="view-controls"><div class="segmented" role="group" aria-label="预览模式"><button class="selected" data-view="compare" aria-pressed="true">对照</button><button data-view="original" aria-pressed="false">原图</button><button data-view="translated" aria-pressed="false">译图</button></div><button class="icon-button" id="fit-button" title="适应画布" aria-label="适应画布"><svg><use href="#i-fit"/></svg></button></div>
+          </div>
+
+          <div class="preview-grid" id="preview-grid" data-mode="compare">
+            <article class="preview-card original-card glass">
+              <header class="preview-card-header"><div><span class="panel-dot peach-dot"></span><strong>原始图片</strong></div><span class="small-label" id="original-language-label">简体中文</span></header>
+              <div class="image-canvas" id="original-canvas"><img id="original-image" hidden alt="原始图片"><div class="empty-preview" id="original-empty"><span class="icon-tile rose"><svg><use href="#i-info"/></svg></span><strong>添加图片，开始翻译</strong><span>请尝试 PNG、JPG、WEBP 或 BMP 图片</span></div></div>
+              <footer class="preview-card-footer"><span class="filename" id="original-filename">尚未导入图片</span><span id="image-dimensions">—</span></footer>
+            </article>
+
+            <span class="compare-arrow" aria-hidden="true"><svg><use href="#i-arrow"/></svg></span>
+
+            <article class="preview-card translated-card glass">
+              <header class="preview-card-header"><div><span class="panel-dot blue-dot"></span><strong>翻译效果</strong></div><button class="icon-button mini" id="download-card" aria-label="导出译图" title="导出译图" disabled><svg><use href="#i-download"/></svg></button></header>
+              <div class="image-canvas" id="translated-canvas"><img id="translated-image" hidden alt="翻译结果"><div class="empty-preview" id="translated-empty"><span class="icon-tile lavender"><svg><use href="#i-spark"/></svg></span><strong>译图将在这里显示</strong><span>翻译完成后，可与原图对照检查</span></div></div>
+              <footer class="preview-card-footer"><span class="result-status" id="result-status"><svg><use href="#i-check"/></svg>等待翻译</span><span class="small-label" id="translated-language-label">English</span></footer>
+            </article>
+          </div>
+
+          <div class="preview-actions"><span class="processing-note"><svg><use href="#i-spark"/></svg><span id="preview-note">尚未导入图片</span></span><div class="translation-action-buttons"><button class="button secondary" id="stop-button" disabled>停止</button><button class="button primary" id="preview-button" disabled><svg><use href="#i-spark"/></svg>开始翻译<svg class="end-icon"><use href="#i-arrow"/></svg></button></div></div>
+        </section>
+
+        <section class="editor-card glass" aria-labelledby="editor-title">
+          <div class="editor-heading"><div><span class="icon-tile small lavender"><svg><use href="#i-edit"/></svg></span><h2 id="editor-title">译文校对</h2><span class="editor-help">可直接编辑</span></div><div class="editor-actions"><button class="button secondary small-button" id="apply-edits" disabled>应用修改</button><button class="button ghost small-button" id="download-text" disabled><svg><use href="#i-download"/></svg>导出校对文本</button></div></div>
+          <div class="translation-table" role="group" aria-label="原文与译文校对">
+            <div class="table-head">识别原文</div><div class="table-head">译文<span>English</span></div>
+            <label class="source-text" id="source-text-1" for="edit-1">—</label><textarea id="edit-1" rows="1" aria-label="第一处译文" placeholder="翻译完成后可校对" disabled></textarea>
+            <label class="source-text" id="source-text-2" for="edit-2">—</label><textarea id="edit-2" rows="1" aria-label="第二处译文" placeholder="翻译完成后可校对" disabled></textarea>
+          </div>
+        </section>
+
+        <footer class="workspace-footer"><span><svg><use href="#i-shield"/></svg><span id="app-status" role="status" aria-live="polite">就绪 · 尚未导入图片</span></span></footer>
+      </section>
+<section id="psd-page" class="main-content" aria-label="PSD 出图" hidden>
+  <header class="page-header"><div><h1>PSD 出图</h1><p>读取文字图层，使用 Excel 译文批量导出。</p></div><button class="button secondary" id="psd-diagnose">检测 PS</button></header>
+  <section class="editor-card glass"><div class="editor-heading"><h2>① 选择 PSD</h2><div><button class="button ghost small-button" id="psd-clear">清空</button><button class="button secondary" id="psd-select">选择文件</button></div></div><p class="settings-hint">支持多个 PSD，也可拖入此页面。</p><div id="psd-files" class="psd-file-list"></div></section>
+  <section class="editor-card glass"><div class="editor-heading"><h2>② 导入 Excel</h2><button class="button secondary" id="psd-excel-select">导入 Excel</button></div><p id="psd-excel-path" class="settings-hint">尚未导入</p><label class="psd-field">工作表<select class="psd-input" id="psd-sheet" disabled></select></label><p id="psd-excel-warnings" class="settings-hint" role="status"></p></section>
+  <section class="editor-card glass"><div class="editor-heading"><h2>③ 确认匹配</h2><div><select class="psd-input" id="psd-match" aria-label="匹配方式"><option value="source">按英文原文</option><option value="key">按图层 Key</option><option value="manual">手动指定</option></select><button class="button secondary" id="psd-preview">读取匹配</button></div></div><p class="settings-hint" id="psd-match-summary">请选择 PSD 并导入 Excel</p><div class="psd-table-wrap"><table class="psd-table" id="psd-matches"><thead></thead><tbody></tbody></table></div><details><summary>图层信息</summary><pre class="settings-hint" id="psd-layer-tree"></pre></details><details><summary>多余词条</summary><div id="psd-unused" class="settings-hint"></div></details></section>
+  <section class="editor-card glass"><div class="editor-heading"><h2>④ 输出设置</h2><button class="button secondary" id="psd-output-select">保存位置</button></div><p id="psd-output-path" class="settings-hint">尚未选择</p><div id="psd-languages" class="psd-languages" role="group" aria-label="输出语言"></div><div class="psd-fields"><label class="psd-field">格式<select id="psd-format" class="psd-input"><option value="png">PNG</option><option value="jpg">JPG</option><option value="psd">PSD</option></select></label><label class="psd-field">命名规则<input id="psd-naming" class="psd-input" value="{文件名}_{语言}"></label><label class="psd-field">JPG 质量<input id="psd-quality" class="psd-input" type="number" min="0" max="100" value="90"></label><label class="psd-field">溢出处理<select id="psd-overflow" class="psd-input"><option value="warn">仅预警</option><option value="shrink">缩小字号</option></select></label><label class="psd-field">最小字号<input id="psd-min-size" class="psd-input" type="number" min="1" max="1000" value="8"></label><label class="psd-field">隐藏图层<select id="psd-hidden" class="psd-input"><option value="skip">跳过</option><option value="include">包含</option></select></label></div><label class="psd-check"><input type="checkbox" id="psd-rtl">RTL 实验</label><p class="settings-hint">阿拉伯语、希伯来语的方向、连字及标点待客户验收。溢出只在结果表中预警，译图文字颜色保留。</p><details><summary>字体设置</summary><p class="settings-hint">按语言填写备用字体的 PostScript 名，使用 JSON 格式。缺失原字体仍按默认规则跳过。</p><textarea id="psd-fonts" class="psd-input" rows="5" aria-label="备用字体配置"></textarea></details><details><summary>PS 设置</summary><label class="psd-field">Mac 应用路径<input id="psd-mac-app" class="psd-input" value="/Applications/Adobe Photoshop 2024/Adobe Photoshop 2024.app"></label><label class="psd-field">Windows COM<input id="psd-progid" class="psd-input" value="Photoshop.Application"></label></details></section>
+  <section class="editor-card glass"><div class="editor-heading"><h2>⑤ 开始导出</h2><div><button class="button secondary" id="psd-stop" disabled>停止</button><button class="button primary" id="psd-export" disabled>开始导出</button></div></div><progress id="psd-progress" max="1" value="0" aria-label="出图进度"></progress><p id="psd-status" class="settings-hint" role="status" aria-live="polite">就绪</p><div id="psd-results"></div><div class="dialog-actions"><button class="button ghost" id="psd-open-logs">查看日志</button><button class="button secondary" id="psd-export-logs">导出日志</button><button class="button secondary" id="psd-open-output" disabled>打开目录</button></div></section>
+</section>
+
+    </div>
+    <div class="drop-overlay" id="drop-overlay" hidden><span class="icon-tile"><svg><use href="#i-images"/></svg></span><strong>松开，添加你的图片</strong><span>文件仅在本机处理</span></div>
+  </main>
+
+  <input id="file-input" type="file" accept=".png,.jpg,.jpeg,.webp,.bmp" multiple hidden>
+  <input id="folder-input" type="file" accept=".png,.jpg,.jpeg,.webp,.bmp" webkitdirectory multiple hidden>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <dialog id="languages-dialog" class="glass-dialog">
+    <div class="dialog-heading"><span class="icon-tile blue"><svg><use href="#i-language"/></svg></span><button class="icon-button" data-close aria-label="关闭语言包弹窗"><svg><use href="#i-close"/></svg></button></div>
+    <h2>离线语言包</h2><p class="dialog-description">管理本地翻译模型。其他目标语言需要先下载对应语言包。</p>
+    <div id="model-list" class="model-list"><p>正在读取语言包…</p></div>
+    <p class="settings-hint" id="model-progress" role="status" aria-live="polite"></p>
+    <div class="notice"><svg><use href="#i-info"/></svg><span>仅下载语言包时需要联网。图片识别和翻译在本机完成。</span></div>
+    <div class="dialog-actions"><button class="button secondary" data-close>稍后再看</button><button class="button primary" data-close>了解了</button></div>
+  </dialog>
+
+  <dialog id="settings-dialog" class="glass-dialog">
+    <div class="dialog-heading"><span class="icon-tile lavender"><svg><use href="#i-sliders"/></svg></span><button class="icon-button" data-close aria-label="关闭设置"><svg><use href="#i-close"/></svg></button></div>
+    <h2>设置</h2>
+    <p class="dialog-description">调整系统材质与白色蒙层，让文字始终清晰。</p>
+    <div class="setting-row glass"><div><strong>系统透明材质</strong><p id="material-description">正在读取窗口材质</p></div><label class="switch"><input type="checkbox" id="transparent-switch" aria-label="系统透明材质"><span class="switch-track"></span></label></div>
+    <p class="settings-hint" id="material-status">不支持系统材质时自动使用兼容背景。</p>
+    <div class="readability-control glass">
+      <label for="veil-range">白色蒙层 <output id="veil-output" for="veil-range">94%</output></label>
+      <input id="veil-range" type="range" min="70" max="94" value="94" step="1">
+      <p>数值越高，背景越淡，文字越清楚。</p>
+      <div class="readability-presets" role="group" aria-label="壁纸可读性预设"><button class="button secondary small-button" data-readability="light">浅色壁纸</button><button class="button secondary small-button" data-readability="dark">深色壁纸</button><button class="button secondary small-button" data-readability="busy">花哨壁纸</button></div>
+    </div>
+    <div class="setting-row glass"><div><strong>诊断日志</strong><p>包含图片翻译与 PSD 任务日志。</p></div><button class="button secondary small-button" id="settings-export-logs">导出日志</button></div>
+    <div class="readability-control glass"><label for="update-repository">GitHub 仓库</label><input id="update-repository" class="psd-input" placeholder="owner/repo"><label class="psd-check"><input type="checkbox" id="update-automatic" checked>启动时检查</label><p id="update-status" class="settings-hint" role="status"></p><div class="dialog-actions"><button class="button secondary small-button" id="update-check">检查更新</button><button class="button primary small-button" id="update-install" disabled>下载安装</button></div></div>
+    <div class="dialog-actions"><button class="button primary" data-close>完成</button></div>
+  </dialog>
+</body>
+</html>

@@ -1,0 +1,62 @@
+name: Build PicLingo macOS
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - 'codex/piclingo-mac-*'
+  workflow_dispatch:
+    inputs:
+      signed:
+        description: 使用 Apple Developer 证书签名并公证
+        required: true
+        default: false
+        type: boolean
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build app and installers
+        env:
+          CSC_LINK: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          SIGNED_BUILD: ${{ inputs.signed }}
+        run: |
+          set -euo pipefail
+          if [ -d piclingo ]; then cd piclingo; fi
+          signing=()
+          if [ "$SIGNED_BUILD" = "true" ]; then signing+=(--signed); fi
+          python modules/psd-export/packaging/build-mac.py --arch '${{ matrix.arch }}' "${signing[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PicLingo-mac-${{ matrix.arch }}
+          path: |
+            outputs/mac-${{ matrix.arch }}/*.dmg
+            outputs/mac-${{ matrix.arch }}/*.zip
+            outputs/mac-${{ matrix.arch }}/*.sha256.txt
+            modules/psd-export/release/mac-${{ matrix.arch }}/smoke/
+            piclingo/outputs/mac-${{ matrix.arch }}/*.dmg
+            piclingo/outputs/mac-${{ matrix.arch }}/*.zip
+            piclingo/outputs/mac-${{ matrix.arch }}/*.sha256.txt
+            piclingo/modules/psd-export/release/mac-${{ matrix.arch }}/smoke/
+          if-no-files-found: error

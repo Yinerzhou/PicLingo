@@ -1,0 +1,23 @@
+/* 仅限定新增页面的结构，颜色、玻璃、圆角、字体与按钮复用原有组件。 */
+#psd-page .editor-heading { flex-wrap: wrap; gap: 12px; }
+#psd-page .editor-heading > div { display: flex; gap: 10px; flex-wrap: wrap; }
+.psd-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 14px 0; }
+.psd-field { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; font-size: 12px; }
+.psd-input { padding: 8px 10px; min-width: 0; max-width: 100%; border: 1px solid var(--glass-border); border-radius: var(--radius-field); background: rgb(255 255 255 / 50%); color: var(--text-primary); }
+#psd-fonts { width: 100%; resize: vertical; }
+.psd-languages { display: flex; flex-wrap: wrap; gap: 14px; margin: 12px 0; }
+.psd-check { display: inline-flex; gap: 7px; align-items: center; }
+.psd-check input { accent-color: var(--accent-strong); }
+.psd-file-list { display: grid; gap: 8px; }
+.psd-file-list .model-row { padding: 10px; overflow-wrap: anywhere; }
+.psd-table-wrap { max-height: 440px; overflow: auto; margin: 12px 0; }
+.psd-table { border-collapse: collapse; width: 100%; font-size: 12px; }
+.psd-table th, .psd-table td { text-align: left; vertical-align: top; padding: 9px; border-bottom: 1px solid var(--glass-border); min-width: 120px; max-width: 320px; overflow-wrap: anywhere; }
+.psd-table th { font-weight: 500; color: var(--text-secondary); }
+.psd-table td:first-child { min-width: 180px; }
+.psd-warning { color: #b42318; }
+#psd-page progress { width: 100%; accent-color: var(--accent-strong); height: 8px; }
+#psd-page details { margin-top: 12px; }
+#psd-layer-tree { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 300px; overflow: auto; }
+#psd-status, #psd-output-path, #psd-excel-path { overflow-wrap: anywhere; }
+#psd-results { display: grid; gap: 8px; }

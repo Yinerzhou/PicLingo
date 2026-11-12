@@ -1,0 +1,164 @@
+{
+  "_mac_validation": "【待 Mac 实机验证】",
+  "worksheet": null,
+  "header_row": 1,
+  "match_by": "source",
+  "key_headers": [
+    "Key",
+    "键",
+    "图层名",
+    "layer",
+    "layer_name",
+    "id"
+  ],
+  "source_headers": [
+    "原文",
+    "英文原文",
+    "source",
+    "source text",
+    "English source"
+  ],
+  "source_language": "en",
+  "language_aliases": {
+    "en": [
+      "EN",
+      "English",
+      "英文",
+      "英语",
+      "英语原文"
+    ],
+    "de": [
+      "DE",
+      "German",
+      "Deutsch",
+      "德语",
+      "德文"
+    ],
+    "fr": [
+      "FR",
+      "French",
+      "Français",
+      "法语",
+      "法文"
+    ],
+    "ja": [
+      "JA",
+      "Japanese",
+      "日本語",
+      "日语",
+      "日文"
+    ],
+    "ko": [
+      "KO",
+      "Korean",
+      "한국어",
+      "韩语",
+      "韩文"
+    ],
+    "zh-CN": [
+      "zh",
+      "zh_cn",
+      "简体中文",
+      "中文"
+    ],
+    "es": [
+      "ES",
+      "Spanish",
+      "Español",
+      "西班牙语"
+    ],
+    "ar": [
+      "AR",
+      "Arabic",
+      "阿拉伯语"
+    ],
+    "he": [
+      "HE",
+      "Hebrew",
+      "希伯来语"
+    ]
+  },
+  "language_names": {
+    "en": "英语",
+    "de": "德语",
+    "fr": "法语",
+    "ja": "日语",
+    "ko": "韩语",
+    "ar": "阿拉伯语",
+    "he": "希伯来语"
+  },
+  "text_normalization": {
+    "trim": true,
+    "normalize_newlines": true,
+    "case_sensitive": true
+  },
+  "hidden_layers": "skip",
+  "smart_objects": {
+    "embedded": "process",
+    "linked": "report",
+    "max_depth": 5
+  },
+  "duplicates": "first_warn",
+  "empty_translation": "keep_warn",
+  "unmatched": "keep_report",
+  "missing_font": "skip_report",
+  "output": {
+    "format": "png",
+    "size": "original",
+    "color_profile": "sRGB IEC61966-2.1",
+    "jpg_quality": 90,
+    "overwrite": false
+  },
+  "overflow": {
+    "strategy": "warn",
+    "minimum_font_size": 8,
+    "implementation_stage": 2
+  },
+  "font_fallbacks": {
+    "ja": [
+      "YuGothic-Regular",
+      "YuGothic",
+      "HiraginoSans-W3",
+      "NotoSansCJKjp-Regular"
+    ],
+    "ko": [
+      "MalgunGothic",
+      "AppleSDGothicNeo-Regular",
+      "NotoSansCJKkr-Regular"
+    ],
+    "zh-CN": [
+      "MicrosoftYaHei",
+      "PingFangSC-Regular",
+      "NotoSansCJKsc-Regular"
+    ],
+    "th": [
+      "Tahoma",
+      "Thonburi",
+      "NotoSansThai-Regular"
+    ],
+    "ar": [
+      "ArialMT",
+      "Tahoma",
+      "GeezaPro",
+      "NotoSansArabic-Regular"
+    ],
+    "he": [
+      "ArialMT",
+      "Tahoma",
+      "ArialHebrew",
+      "NotoSansHebrew-Regular"
+    ]
+  },
+  "rtl_enabled": false,
+  "photoshop": {
+    "windows_progid": "Photoshop.Application",
+    "mac_application": "/Applications/Adobe Photoshop 2024/Adobe Photoshop 2024.app",
+    "expected_major": 25,
+    "strict_version": false,
+    "busy_retries": 3,
+    "retry_delay_seconds": 2,
+    "probe_timeout_seconds": 30,
+    "task_timeout_seconds": 180,
+    "suppress_dialogs": true
+  }
+}
