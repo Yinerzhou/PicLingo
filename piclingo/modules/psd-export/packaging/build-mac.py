@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import platform
+import plistlib
 import shutil
 import subprocess
 import sys
@@ -42,6 +43,13 @@ def main():
         raise RuntimeError("公证需要 APPLE_ID、APPLE_APP_SPECIFIC_PASSWORD、APPLE_TEAM_ID")
     build = MODULE / "release" / ("mac-" + args.arch)
     build.mkdir(parents=True, exist_ok=True)
+    entitlements = build / "entitlements.mac.plist"
+    with (MODULE / "packaging/entitlements.mac.plist").open("rb") as source:
+        entitlements_value = plistlib.load(source)
+    # 统一输出原生 XML 格式与 LF，供 AMFI 的权限解析器读取。
+    with entitlements.open("wb") as output_file:
+        plistlib.dump(entitlements_value, output_file)
+    run(["plutil", "-lint", entitlements])
     environment = build / "venv"
     if not environment.exists():
         run([sys.executable, "-m", "venv", environment])
@@ -88,11 +96,11 @@ def main():
             {"from": str(WORKSPACE / "work/THIRD-PARTY-NOTICES.md"), "to": "THIRD-PARTY-NOTICES.md"}
         ],
         "mac": {
-            "target": ["dmg", "zip"], "minimumSystemVersion": "13.0.0",
+            "target": ["dmg"], "minimumSystemVersion": "13.0.0",
             "category": "public.app-category.graphics-design", "icon": str(MODULE / "packaging/app.icns"),
             "hardenedRuntime": True, "gatekeeperAssess": False,
-            "entitlements": str(MODULE / "packaging/entitlements.mac.plist"),
-            "entitlementsInherit": str(MODULE / "packaging/entitlements.mac.plist"),
+            "entitlements": str(entitlements),
+            "entitlementsInherit": str(entitlements),
             "extendInfo": {"NSAppleEventsUsageDescription": "使用 Photoshop 读取 PSD 文字图层，并根据 Excel 译文导出多语言图片。"},
             "binaries": ["Contents/Resources/backend/PicLingoWorker", "Contents/Resources/psd/PicLingoPSD"],
             "notarize": args.signed,
