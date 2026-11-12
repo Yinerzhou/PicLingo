@@ -15,7 +15,15 @@ MODULE = WORKSPACE / "modules/psd-export"
 
 
 def run(arguments, **options):
-    subprocess.run([str(value) for value in arguments], check=True, **options)
+    try:
+        subprocess.run([str(value) for value in arguments], check=True, **options)
+    except subprocess.CalledProcessError as error:
+        output = options.get("stdout")
+        if hasattr(output, "name"):
+            output.flush()
+            print(Path(output.name).read_text(encoding="utf-8", errors="replace")[-12000:])
+        # 公证命令包含应用专用密码，异常中仅输出步骤和退出码。
+        raise RuntimeError("%s 步骤失败，退出码 %s" % (Path(str(arguments[0])).name, error.returncode)) from None
 
 
 def main():
