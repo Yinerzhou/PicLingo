@@ -36,6 +36,7 @@ class Updates {
     fs.mkdirSync(directory, { recursive: true });
     this.state = { phase: 'idle', message: '就绪', progress: 0, notes: '' };
     this.updater = null; this.checking = false; this.downloading = false; this.installing = false;
+    this.pendingFromLaunch = this.deferredVersion();
   }
   log(level, message) {
     try {
@@ -46,7 +47,7 @@ class Updates {
     } catch { /* 日志故障不影响用户任务。 */ }
   }
   publish(value) { this.state = { ...this.state, ...value }; this.send(this.state); }
-  error(error) { this.log('error', error.stack || error.message || error); this.publish({ phase: 'error', message: error.message || String(error) }); }
+  error(error) { this.installing = false; this.log('error', error.stack || error.message || error); this.publish({ phase: 'error', message: error.message || String(error) }); }
   settings() {
     try { const value = JSON.parse(fs.readFileSync(path.join(this.directory, 'settings.json'), 'utf8')); return configuration(value.provider ? value : { provider: 'github', ...value }); }
     catch { return { provider: 'github', repository: '', automatic: true }; }
@@ -107,13 +108,15 @@ class Updates {
     if (this.checking || this.downloading || this.installing) return { ...this.state, message: '更新正在处理' };
     if (!this.provider()) return { configured: false, message: '尚未配置更新源' };
     this.checking = true;
+    const pending = this.pendingFromLaunch;
+    this.pendingFromLaunch = null;
     try {
       this.publish({ phase: 'checking', message: '正在检查更新' }); this.log('info', '检查更新');
       const result = await this.engine().checkForUpdates();
       if (result && newer(result.updateInfo.version, this.version)) {
         this.downloadInfo = result.updateInfo;
         this.requireSignature(); await this.download();
-        if (this.deferredVersion() === result.updateInfo.version && !this.busy()) await this.install();
+        if (pending === result.updateInfo.version && !this.busy()) await this.install();
       }
       return { configured: true, available: this.state.phase === 'downloaded', ...this.state };
     } catch (error) { this.error(error); return { configured: true, available: false, ...this.state }; }

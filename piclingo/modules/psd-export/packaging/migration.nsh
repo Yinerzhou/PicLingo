@@ -1,9 +1,14 @@
 !macro customInit
+  !insertmacro GetDParameter $R3
+  ${If} $R3 != ""
+    StrCpy $INSTDIR $R3
+  ${Else}
   ReadRegStr $R0 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\PicLingo" "InstallLocation"
   ${If} $R0 != ""
     ${If} ${FileExists} "$R0\.piclingo-install.json"
       StrCpy $INSTDIR $R0
     ${EndIf}
+  ${EndIf}
   ${EndIf}
 !macroend
 

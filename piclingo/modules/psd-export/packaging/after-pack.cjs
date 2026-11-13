@@ -20,6 +20,8 @@ module.exports = async context => {
     }
   }
   walk(directory);
+  // NSIS 在 afterPack 之后加入此固定辅助程序。
+  if (!files.includes('resources/elevate.exe')) files.push('resources/elevate.exe');
   fs.writeFileSync(path.join(directory, '.piclingo-managed.json'), JSON.stringify(files));
 };
 

@@ -40,6 +40,7 @@ test('后台进度、更新日志、延期和忙碌保护', async t => {
   assert.equal((await updates.check()).phase, 'downloaded');
   assert.equal(updates.state.notes, '<b>纯文本</b>');
   updates.defer(); assert.equal(updates.deferredVersion(), '1.3.1');
+  await updates.check(); assert.equal(installed(), 0);
   updates.busy = () => true; await assert.rejects(() => updates.install(), /等待/); assert.equal(installed(), 0);
   updates.busy = () => false; await updates.install(); assert.equal(installed(), 1);
 });

@@ -126,7 +126,7 @@ def main():
         run(["spctl", "--assess", "--type", "execute", "--verbose=2", app_bundle])
     # 在独立验收副本启用检查入口，正式产物继续保留生产限制。
     qa_bundle = build / "qa/PicLingo.app"
-    shutil.copytree(app_bundle, qa_bundle, dirs_exist_ok=True)
+    shutil.copytree(app_bundle, qa_bundle, dirs_exist_ok=True, symlinks=True)
     (qa_bundle / "Contents/Resources/piclingo-test-build.json").write_text("{}", encoding="utf-8")
     run(["codesign", "--force", "--deep", "--sign", "-", "--options", "runtime", "--entitlements", entitlements, qa_bundle])
     smoke = build / "smoke/result.json"
