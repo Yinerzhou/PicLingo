@@ -22,7 +22,7 @@ try {
     Checked $psdPython @('-m','PyInstaller','--noconfirm','--distpath','modules/psd-export/release/worker-dist','--workpath','modules/psd-export/release/worker-build','modules/psd-export/packaging/psd.spec')
     $module = Join-Path $root 'modules\psd-export'
     $uiModule = Join-Path $root 'outputs\PicLingo-Liquid-Glass\modules\psd-export'
-    foreach ($name in @('electron.cjs','security.cjs','packaging\updates.cjs','packaging\smoke.cjs','packaging\verify-signature.cjs','packaging\verify-signature.ps1')) { Copy-Item -LiteralPath (Join-Path $module $name) -Destination (Join-Path $uiModule $name) -Force }
+    foreach ($name in @('electron.cjs','security.cjs','packaging\updates.cjs','packaging\release-signature.cjs','packaging\smoke.cjs','packaging\verify-signature.cjs','packaging\verify-signature.ps1')) { Copy-Item -LiteralPath (Join-Path $module $name) -Destination (Join-Path $uiModule $name) -Force }
     Copy-Item -Path (Join-Path $module 'renderer\*') -Destination (Join-Path $uiModule 'renderer') -Force
     Checked 'npm.cmd' @('ci','--prefix','outputs/PicLingo-Liquid-Glass','--ignore-scripts','--no-audit','--no-fund')
     Checked 'npm.cmd' @('ci','--prefix','modules/psd-export/packaging','--ignore-scripts','--no-audit','--no-fund')

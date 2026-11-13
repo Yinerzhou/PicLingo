@@ -18,7 +18,9 @@ build({ projectDir: __dirname, targets: require('electron-builder').Platform.WIN
   afterPack: path.join(__dirname, 'after-pack.cjs'),
   win: { icon: path.join(root, 'work/assets/app.ico'), artifactName: 'PicLingo-Setup-${version}.exe', verifyUpdateCodeSignature: true, signtoolOptions: { publisherName: process.env.PICLINGO_PUBLISHER || undefined } },
   nsis: { oneClick: false, perMachine: false, allowElevation: false, allowToChangeInstallationDirectory: true, createDesktopShortcut: true, shortcutName: 'PicLingo 图译工坊', menuCategory: 'PicLingo 图译工坊', deleteAppDataOnUninstall: false, runAfterFinish: false, include: path.join(__dirname, 'migration.nsh') },
-  publish: [{ provider: 'generic', url: process.env.PICLINGO_UPDATE_URL || 'https://updates.example.com/piclingo/win-x64/' }],
+  publish: [process.env.PICLINGO_UPDATE_URL
+    ? { provider: 'generic', url: process.env.PICLINGO_UPDATE_URL }
+    : { provider: 'github', owner: require('./release-channel.json').repository.split('/')[0], repo: require('./release-channel.json').repository.split('/')[1] }],
   electronVersion: '45.3.1',
   releaseInfo: { releaseNotesFile: path.join(__dirname, 'release-notes.md') }
 }, publish: 'never' }).catch(error => { console.error(error); process.exitCode = 1; });

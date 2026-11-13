@@ -84,6 +84,11 @@ def main():
     shutil.copy2(MODULE / "packaging/package-lock.json", project / "package-lock.json")
     run(["npm", "ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund"], cwd=app_dir)
     output = WORKSPACE / "outputs" / ("mac-" + args.arch)
+    channel = json.loads((MODULE / "packaging/release-channel.json").read_text(encoding="utf-8"))
+    owner, repository = channel["repository"].split("/")
+    publish = {"provider": "github", "owner": owner, "repo": repository}
+    if os.environ.get("PICLINGO_UPDATE_URL"):
+        publish = {"provider": "generic", "url": os.environ["PICLINGO_UPDATE_URL"]}
     config = {
         "appId": "com.piclingo.desktop", "productName": "PicLingo", "asar": True, "forceCodeSigning": args.signed,
         "directories": {"app": str(app_dir), "output": str(output)},
@@ -109,7 +114,7 @@ def main():
             "artifactName": "PicLingo-${version}-${arch}.${ext}"
         },
         "dmg": {"writeUpdateInfo": False},
-        "publish": [{"provider": "generic", "url": os.environ.get("PICLINGO_UPDATE_URL", "https://updates.example.com/piclingo/mac-" + args.arch + "/")}]
+        "publish": [publish]
     }
     if not args.signed:
         config["mac"]["identity"] = "-"

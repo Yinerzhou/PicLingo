@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { object } = require('../security.cjs');
+const releaseSignature = require('./release-signature.cjs');
 const INTERVAL = 4 * 60 * 60 * 1000;
 function newer(candidate, current) {
   const parse = value => /^v?(\d+)\.(\d+)\.(\d+)$/.exec(value)?.slice(1).map(Number);
@@ -49,8 +50,13 @@ class Updates {
   publish(value) { this.state = { ...this.state, ...value }; this.send(this.state); }
   error(error) { this.installing = false; this.log('error', error.stack || error.message || error); this.publish({ phase: 'error', message: error.message || String(error) }); }
   settings() {
-    try { const value = JSON.parse(fs.readFileSync(path.join(this.directory, 'settings.json'), 'utf8')); return configuration(value.provider ? value : { provider: 'github', ...value }); }
-    catch { return { provider: 'github', repository: '', automatic: true }; }
+    const defaults = this.policy.defaultFeed || { provider: 'github', repository: '', automatic: true };
+    try {
+      const value = JSON.parse(fs.readFileSync(path.join(this.directory, 'settings.json'), 'utf8'));
+      const saved = configuration(value.provider ? value : { provider: 'github', ...value });
+      // 旧版本保存的空地址沿用内置源，同时保留用户的自动检查开关。
+      return saved.repository || saved.url ? saved : configuration({ ...defaults, automatic: saved.automatic });
+    } catch { return configuration(defaults); }
   }
   configure(input, automatic) {
     if (this.downloading || this.checking || this.installing) throw new Error('请等待更新操作结束再更换更新源');
@@ -73,7 +79,11 @@ class Updates {
     return { provider: 'github', owner, repo, private: false };
   }
   requireSignature() {
+    if (process.platform === 'win32' && this.policy.updatePublicKey) return;
     if (!this.policy.signed || (process.platform === 'win32' && !this.policy.publisherName)) throw new Error('当前构建未配置正式发布签名，自动安装已停用，请使用已签名发行版');
+  }
+  releaseFile() {
+    return this.downloadInfo?.files?.find(item => process.platform === 'win32' ? /\.exe$/i.test(new URL(item.url, 'https://update.invalid/').pathname) : /\.zip$/i.test(new URL(item.url, 'https://update.invalid/').pathname));
   }
   engine() {
     if (this.updater) return this.updater;
@@ -94,6 +104,17 @@ class Updates {
       // 固定本机发行策略中的身份，更换下载源仍执行相同身份验证。
       updater.configOnDisk = { value: Promise.resolve({ publisherName: this.policy.publisherName }) };
       if (!this.factory) updater.verifyUpdateCodeSignature = require('./verify-signature.cjs');
+    }
+    if (process.platform === 'win32' && this.policy.updatePublicKey) {
+      // 通过 NSIS 自定义验证入口校验发布签名，禁止无校验安装。
+      updater.configOnDisk = { value: Promise.resolve({ publisherName: 'PicLingo Ed25519' }) };
+      updater.verifyUpdateCodeSignature = async (_publishers, file) => {
+        try {
+          await releaseSignature.verifyFile(this.policy.updatePublicKey, this.downloadInfo.version, this.releaseFile(), file);
+          if (this.policy.signed && this.policy.publisherName) return require('./verify-signature.cjs')([this.policy.publisherName], file);
+          return null;
+        } catch (error) { return error.message; }
+      };
     }
     updater.on('error', error => this.error(error));
     updater.on('update-available', info => {
@@ -120,6 +141,7 @@ class Updates {
       const result = await this.engine().checkForUpdates();
       if (result && newer(result.updateInfo.version, this.version)) {
         this.downloadInfo = result.updateInfo;
+        if (process.platform === 'win32' && this.policy.updatePublicKey) releaseSignature.verify(this.policy.updatePublicKey, this.downloadInfo.version, this.releaseFile());
         this.requireSignature(); await this.download();
         if (pending === result.updateInfo.version && !this.busy()) await this.install();
       }
