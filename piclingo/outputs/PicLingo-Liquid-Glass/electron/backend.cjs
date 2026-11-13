@@ -76,8 +76,11 @@ class Backend {
   async render(request) {
     const record = this.record(request?.docId);
     if (!Array.isArray(request.edits) || request.edits.length !== record.blocks.length) throw new Error('译文数量不匹配');
+    let total = 0;
     const edits = request.edits.map(edit => {
-      if (typeof edit.translated !== 'string' || edit.translated.length > 10000) throw new Error('译文过长或格式不正确');
+      if (!edit || typeof edit.translated !== 'string' || edit.translated.length > 10000) throw new Error('译文过长或格式不正确');
+      total += edit.translated.length;
+      if (total > 2 * 1024 * 1024) throw new Error('本次译文总量过大');
       return { translated: edit.translated, enabled: edit.enabled !== false };
     });
     const result = await this.request('render', { docId: request.docId, edits });
@@ -115,3 +118,4 @@ class Backend {
   }
 }
 module.exports = { Backend };
+

@@ -6,6 +6,8 @@ import json
 import uuid
 import tempfile
 import traceback
+import hashlib
+from urllib.parse import urlparse
 from pathlib import Path
 
 from PySide6.QtGui import QGuiApplication, QFontDatabase
@@ -38,7 +40,24 @@ def serve():
         DATA.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix='download-', dir=DATA) as folder:
             archive = Path(folder) / 'language.argosmodel'
-            with requests.get(url, stream=True, timeout=(15, 35)) as response:
+            response = None
+            for attempt in range(6):
+                if urlparse(url).scheme != 'https':
+                    raise ValueError('语言包及其重定向必须使用 HTTPS')
+                parsed = urlparse(url)
+                if parsed.username or parsed.password or parsed.hostname != urlparse(entries[-1]['links'][0]).hostname:
+                    raise ValueError('语言包重定向到未授权来源')
+                response = requests.get(url, stream=True, timeout=(15, 35), allow_redirects=False)
+                if response.status_code in (301, 302, 303, 307, 308):
+                    from urllib.parse import urljoin
+                    next_url = urljoin(url, response.headers.get('Location', ''))
+                    response.close()
+                    url = next_url
+                    continue
+                break
+            else:
+                raise ValueError('语言包重定向次数过多')
+            with response:
                 response.raise_for_status()
                 written = 0
                 with archive.open('wb') as output:
@@ -47,6 +66,14 @@ def serve():
                         if written > 1_500_000_000: raise ValueError('语言包大小超出限制')
                         output.write(chunk)
                         progress(f'正在下载 {source} → {target} · {written / 1048576:.1f} MB')
+            expected_hash = entries[-1].get('sha256')
+            if expected_hash:
+                with archive.open('rb') as downloaded:
+                    digest = hashlib.file_digest(downloaded, 'sha256').hexdigest()
+                if digest != expected_hash:
+                    raise ValueError('语言包 SHA256 校验失败')
+            else:
+                print(f'语言包 {source} → {target} 无发布摘要，已使用 HTTPS 同源下载及结构校验', file=sys.stderr)
             progress(f'正在安装 {source} → {target}')
             extract_model(archive, DATA / 'models', (source, target))
 
@@ -102,3 +129,4 @@ def serve():
 
 if __name__ == '__main__':
     sys.exit(serve())
+

@@ -5,6 +5,7 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 const readline = require('node:readline');
 const crypto = require('node:crypto');
+const security = require('./security.cjs');
 
 class PsdController {
   constructor({ moduleRoot, stateRoot, packaged, send = () => {} }) {
@@ -14,6 +15,7 @@ class PsdController {
     this.send = send;
     this.jobs = new Map();
     this.lastOutput = null;
+    this.access = new security.FileAccess();
     fs.mkdirSync(path.join(stateRoot, 'jobs'), { recursive: true });
     this.configFile = path.join(stateRoot, 'config.json');
     if (!fs.existsSync(this.configFile)) fs.writeFileSync(this.configFile, '{}\n');
@@ -23,11 +25,15 @@ class PsdController {
     if (this.packaged) return [path.join(this.moduleRoot, process.platform === 'win32' ? 'PicLingoPSD.exe' : 'PicLingoPSD')];
     return [path.join(this.moduleRoot, '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python'), path.join(this.moduleRoot, 'service.py')];
   }
-  async run(request) {
-    if (!request || !['workbook', 'inspect', 'preview', 'export', 'diagnose', 'logs'].includes(request.operation)) throw new Error('PSD 操作无效');
+  authorize(value, kind) { return this.access.authorize(value, kind); }
+  exportLogs(destination) { return this.run({ operation: 'logs', destination }, true); }
+  async run(request, internal = false) {
+    security.request(request, this.access, internal);
+    if (this.jobs.size >= 4) throw new Error('PSD 任务过多，请稍后重试');
     if (this.busy && request.operation !== 'logs' && request.operation !== 'workbook') throw new Error('PSD 任务正在处理');
     const defaults = JSON.parse(fs.readFileSync(this.configFile, 'utf8').replace(/^\uFEFF/, ''));
     if (!defaults || typeof defaults !== 'object' || Array.isArray(defaults)) throw new Error('PSD 配置文件应为 JSON 对象');
+    security.settings(defaults);
     const settings = Object.assign(Object.create(null), defaults);
     for (const [key, value] of Object.entries(request.settings || {})) {
       if (value && typeof value === 'object' && !Array.isArray(value)) settings[key] = { ...defaults[key], ...value };
@@ -44,7 +50,7 @@ class PsdController {
     return new Promise((resolve, reject) => {
       const child = spawn(executable, [...prefix, '--request', requestFile, '--job', directory], {
         windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
-        env: { ...process.env, PICLINGO_PSD_HOME: this.stateRoot, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' }
+        env: { ...process.env, PICLINGO_PSD_HOME: this.stateRoot, PICLINGO_LOG_DESTINATION: internal ? path.resolve(request.destination) : '', PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' }
       });
       const job = { id, directory, operation: request.operation, child };
       this.jobs.set(id, job);

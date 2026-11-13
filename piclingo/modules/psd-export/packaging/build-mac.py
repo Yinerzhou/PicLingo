@@ -76,18 +76,19 @@ def main():
     ui = WORKSPACE / "outputs/PicLingo-Liquid-Glass"
     app_dir = project / "app"
     app_dir.mkdir(exist_ok=True)
-    for name in ["index.html", "styles.css", "app.js", "desktop-bridge.js", "package.json"]:
+    for name in ["index.html", "styles.css", "app.js", "desktop-bridge.js", "package.json", "package-lock.json"]:
         shutil.copy2(ui / name, app_dir / name)
     for name in ["assets", "electron", "modules", "tests"]:
         shutil.copytree(ui / name, app_dir / name, dirs_exist_ok=True)
-    package = {"name": "piclingo-mac-release", "version": "1.2.0", "private": True,
-               "devDependencies": {"electron": "45.3.1", "electron-builder": "26.18.0"}}
-    (project / "package.json").write_text(json.dumps(package, indent=2), encoding="utf-8")
+    shutil.copy2(MODULE / "packaging/package.json", project / "package.json")
+    shutil.copy2(MODULE / "packaging/package-lock.json", project / "package-lock.json")
+    run(["npm", "ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund"], cwd=app_dir)
     output = WORKSPACE / "outputs" / ("mac-" + args.arch)
     config = {
         "appId": "com.piclingo.desktop", "productName": "PicLingo", "asar": True, "forceCodeSigning": args.signed,
         "directories": {"app": str(app_dir), "output": str(output)},
-        "files": ["**/*", "!tests/**", "!node_modules/**"],
+        "files": ["**/*", "!tests/**"],
+        "afterPack": str(MODULE / "packaging/after-pack.cjs"),
         "extraResources": [
             {"from": str(build / "ocr-dist/PicLingoWorker"), "to": "backend"},
             {"from": str(build / "psd-dist/PicLingoPSD"), "to": "psd"},
@@ -96,7 +97,7 @@ def main():
             {"from": str(WORKSPACE / "work/THIRD-PARTY-NOTICES.md"), "to": "THIRD-PARTY-NOTICES.md"}
         ],
         "mac": {
-            "target": ["dmg"], "minimumSystemVersion": "13.0.0",
+            "target": ["dmg", "zip"], "minimumSystemVersion": "13.0.0",
             "category": "public.app-category.graphics-design", "icon": str(MODULE / "packaging/app.icns"),
             "hardenedRuntime": True, "gatekeeperAssess": False,
             "entitlements": str(entitlements),
@@ -106,12 +107,13 @@ def main():
             "notarize": args.signed,
             "artifactName": "PicLingo-${version}-${arch}.${ext}"
         },
-        "dmg": {"writeUpdateInfo": False}, "publish": None
+        "dmg": {"writeUpdateInfo": False},
+        "publish": [{"provider": "generic", "url": os.environ.get("PICLINGO_UPDATE_URL", "https://updates.example.com/piclingo/mac-" + args.arch + "/")}]
     }
     if not args.signed:
         config["mac"]["identity"] = "-"
     (project / "electron-builder.json").write_text(json.dumps(config, indent=2), encoding="utf-8")
-    run(["npm", "install", "--no-audit", "--no-fund"], cwd=project)
+    run(["npm", "ci", "--no-audit", "--no-fund"], cwd=project)
     builder_environment = os.environ.copy()
     if not args.signed:
         for key in ["CSC_LINK", "CSC_KEY_PASSWORD", "APPLE_ID", "APPLE_APP_SPECIFIC_PASSWORD", "APPLE_TEAM_ID"]:
@@ -122,11 +124,15 @@ def main():
     run(["codesign", "--verify", "--deep", "--strict", "--verbose=2", app_bundle])
     if args.signed:
         run(["spctl", "--assess", "--type", "execute", "--verbose=2", app_bundle])
-    # Mac 上即使没有 Photoshop，也可验证原有 OCR/离线翻译和新后端 Excel 读取。
+    # 在独立验收副本启用检查入口，正式产物继续保留生产限制。
+    qa_bundle = build / "qa/PicLingo.app"
+    shutil.copytree(app_bundle, qa_bundle, dirs_exist_ok=True)
+    (qa_bundle / "Contents/Resources/piclingo-test-build.json").write_text("{}", encoding="utf-8")
+    run(["codesign", "--force", "--deep", "--sign", "-", "--options", "runtime", "--entitlements", entitlements, qa_bundle])
     smoke = build / "smoke/result.json"
     smoke.parent.mkdir(exist_ok=True)
     with (build / "smoke/console.log").open("w") as log:
-        run([app_bundle / "Contents/MacOS/PicLingo", "--app-smoke=" + str(smoke)], stdout=log, stderr=subprocess.STDOUT, timeout=300)
+        run([qa_bundle / "Contents/MacOS/PicLingo", "--app-smoke=" + str(smoke)], stdout=log, stderr=subprocess.STDOUT, timeout=300)
     result = json.loads(smoke.read_text(encoding="utf-8"))
     if not result["workflow"]["editedImageChanged"]:
         raise RuntimeError("Mac 原有图片翻译回归未通过")
@@ -146,3 +152,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

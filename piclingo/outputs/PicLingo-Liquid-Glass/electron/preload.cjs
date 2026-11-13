@@ -3,7 +3,13 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 const mode = process.argv.find(arg => arg.startsWith('--piclingo-material='))?.split('=')[1] || 'fallback';
 contextBridge.exposeInMainWorld('piclingo', {
   platform: process.platform,
-  pathForFile: file => webUtils.getPathForFile(file),
+  pathForFile: file => {
+    const value = webUtils.getPathForFile(file);
+    if (!/\.psd$/i.test(value)) return '';
+    const result = ipcRenderer.sendSync('psd:authorize-drop', value);
+    if (result.error) throw new Error(result.error);
+    return result.path;
+  },
   psdChooseFiles: () => ipcRenderer.invoke('psd:choose-files'),
   psdChooseExcel: () => ipcRenderer.invoke('psd:choose-excel'),
   psdChooseOutput: () => ipcRenderer.invoke('psd:choose-output'),
@@ -16,7 +22,16 @@ contextBridge.exposeInMainWorld('piclingo', {
   configureUpdates: (repository, automatic) => ipcRenderer.invoke('release:configure', repository, automatic),
   checkUpdates: () => ipcRenderer.invoke('release:check'),
   installUpdate: () => ipcRenderer.invoke('release:install'),
+  deferUpdate: () => ipcRenderer.invoke('release:defer'),
+  getUpdateState: () => ipcRenderer.invoke('release:state'),
+  onUpdateState: callback => {
+    if (typeof callback !== 'function') throw new TypeError('回调必须为函数');
+    const listener = (_event, value) => callback(value);
+    ipcRenderer.on('release:state', listener);
+    return () => ipcRenderer.removeListener('release:state', listener);
+  },
   onPsdProgress: callback => {
+    if (typeof callback !== 'function') throw new TypeError('回调必须为函数');
     const listener = (_event, value) => callback(value);
     ipcRenderer.on('psd:progress', listener);
     return () => ipcRenderer.removeListener('psd:progress', listener);
@@ -36,18 +51,22 @@ contextBridge.exposeInMainWorld('piclingo', {
   saveImage: id => ipcRenderer.invoke('piclingo:save-image', id),
   exportImages: ids => ipcRenderer.invoke('piclingo:export-images', ids),
   onProgress: callback => {
+    if (typeof callback !== 'function') throw new TypeError('回调必须为函数');
     const listener = (_event, text) => callback(String(text));
     ipcRenderer.on('piclingo:progress', listener);
     return () => ipcRenderer.removeListener('piclingo:progress', listener);
   },
   onMaximizedChanged: callback => {
+    if (typeof callback !== 'function') throw new TypeError('回调必须为函数');
     const listener = (_event, value) => callback(Boolean(value));
     ipcRenderer.on('piclingo:window-maximized', listener);
     return () => ipcRenderer.removeListener('piclingo:window-maximized', listener);
   },
   onAppearanceChanged: callback => {
+    if (typeof callback !== 'function') throw new TypeError('回调必须为函数');
     const listener = (_event, appearance) => callback(appearance);
     ipcRenderer.on('piclingo:appearance-changed', listener);
     return () => ipcRenderer.removeListener('piclingo:appearance-changed', listener);
   }
 });
+

@@ -46,6 +46,12 @@ def workbook(path, config):
     path = Path(path).expanduser().resolve(strict=True)
     if path.suffix.lower() != ".xlsx":
         raise ValueError("请选择 XLSX 文件")
+    if path.stat().st_size > 50 * 1024 * 1024:
+        raise ValueError("Excel 超过 50MB")
+    with zipfile.ZipFile(path) as archive:
+        members = archive.infolist()
+        if len(members) > 10000 or sum(item.file_size for item in members) > 256 * 1024 * 1024:
+            raise ValueError("Excel 解压体积或条目数量过大")
     original_hash = cli.file_hash(path)
     with path.open("rb") as stream:
         book = load_workbook(stream, read_only=True, data_only=False)
@@ -293,7 +299,11 @@ def main():
     job = args.job.resolve()
     job.mkdir(parents=True, exist_ok=True)
     try:
+        if args.request.stat().st_size > 8 * 1024 * 1024:
+            raise ValueError("请求超过 8MB")
         request = json.loads(args.request.read_text(encoding="utf-8-sig"))
+        if not isinstance(request, dict) or not isinstance(request.get("settings", {}), dict):
+            raise ValueError("请求或设置格式无效")
         config = configuration(request.get("settings", {}), job)
         operation = request["operation"]
         if operation == "workbook":
@@ -312,6 +322,8 @@ def main():
             result = {"ok": True, "job_dir": str(job)}
         elif operation == "logs":
             destination = Path(request["destination"]).resolve()
+            if os.environ.get("PICLINGO_LOG_DESTINATION") != str(destination):
+                raise PermissionError("日志保存路径未由桌面保存对话框授权")
             temporary = job / "logs.zip"
             with zipfile.ZipFile(temporary, "w", zipfile.ZIP_DEFLATED) as archive:
                 archive.writestr("environment.json", json.dumps({"system": platform.platform(), "architecture": platform.machine(), "python": sys.version}, ensure_ascii=False))
@@ -321,6 +333,9 @@ def main():
                 old_log = cli.ROOT.parent / "worker.log"
                 if old_log.is_file():
                     archive.write(old_log, "image-translation/worker.log")
+                update_log = cli.ROOT.parent / "updates/update.log"
+                if update_log.is_file():
+                    archive.write(update_log, "updates/update.log")
             os.replace(temporary, destination)
             result = {"path": str(destination)}
         else:

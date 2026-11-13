@@ -4,7 +4,7 @@ const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
-const { spawnSync, spawn } = require('node:child_process');
+const { spawnSync } = require('node:child_process');
 const { chooseMaterial, windowOptions } = require('./material.cjs');
 const { Backend } = require('./backend.cjs');
 const { PsdController } = require('../modules/psd-export/electron.cjs');
@@ -12,10 +12,11 @@ const { Updates } = require('../modules/psd-export/packaging/updates.cjs');
 
 const uiRoot = path.resolve(__dirname, '..');
 const entryUrl = pathToFileURL(path.join(uiRoot, 'index.html')).href;
-const appSmokePath = process.argv.find(arg => arg.startsWith('--app-smoke='))?.slice('--app-smoke='.length);
-const psdSmokeInput = process.argv.find(arg => arg.startsWith('--psd-smoke='))?.slice('--psd-smoke='.length);
+const testing = !app.isPackaged || fs.existsSync(path.join(process.resourcesPath, 'piclingo-test-build.json'));
+const appSmokePath = testing && process.argv.find(arg => arg.startsWith('--app-smoke='))?.slice('--app-smoke='.length);
+const psdSmokeInput = testing && process.argv.find(arg => arg.startsWith('--psd-smoke='))?.slice('--psd-smoke='.length);
 const psdScenario = psdSmokeInput ? JSON.parse(fs.readFileSync(psdSmokeInput, 'utf8').replace(/^\uFEFF/, '')) : null;
-const smokePath = appSmokePath || psdScenario?.result || process.argv.find(arg => arg.startsWith('--glass-smoke='))?.slice('--glass-smoke='.length);
+const smokePath = appSmokePath || psdScenario?.result || (testing && process.argv.find(arg => arg.startsWith('--glass-smoke='))?.slice('--glass-smoke='.length));
 let win;
 let enabled = true;
 let appearance;
@@ -49,7 +50,15 @@ function getPsd() {
   return psd;
 }
 function getUpdates() {
-  if (!updates) updates = new Updates({ directory: path.join(app.getPath('userData'), 'updates'), version: app.getVersion() });
+  if (!updates) {
+    let policy = {};
+    try { policy = JSON.parse(fs.readFileSync(path.join(process.resourcesPath, 'update-policy.json'), 'utf8')); } catch {}
+    updates = new Updates({ directory: path.join(app.getPath('userData'), 'updates'), version: app.getVersion(), policy, packaged: app.isPackaged,
+      send: value => { if (win && !win.isDestroyed()) win.webContents.send('release:state', value); },
+      busy: () => Boolean(backend?.busy || psd?.busy),
+      dispose: async () => { await Promise.all([backend?.dispose(), psd?.dispose()]); backend = null; psd = null; }
+    });
+  }
   return updates;
 }
 
@@ -84,31 +93,25 @@ function trusted(event) {
 }
 function registerIpc() {
   const handle = (name, handler) => ipcMain.handle(name, (event, ...args) => { trusted(event); return handler(...args); });
-  handle('psd:choose-files', async () => psdScenario ? psdScenario.files : (await dialog.showOpenDialog(win, { title: '选择 PSD', filters: [{ name: 'Photoshop', extensions: ['psd'] }], properties: ['openFile', 'multiSelections'] })).filePaths);
-  handle('psd:choose-excel', async () => psdScenario ? psdScenario.excel : (await dialog.showOpenDialog(win, { title: '导入 Excel', filters: [{ name: 'Excel', extensions: ['xlsx'] }], properties: ['openFile'] })).filePaths[0]);
-  handle('psd:choose-output', async () => psdScenario ? psdScenario.output : (await dialog.showOpenDialog(win, { title: '保存位置', properties: ['openDirectory', 'createDirectory'] })).filePaths[0]);
-  handle('psd:run', request => getPsd().run(request));
+  handle('psd:choose-files', async () => (psdScenario ? psdScenario.files : (await dialog.showOpenDialog(win, { title: '选择 PSD', filters: [{ name: 'Photoshop', extensions: ['psd'] }], properties: ['openFile', 'multiSelections'] })).filePaths).map(file => getPsd().authorize(file, 'psd')));
+  handle('psd:choose-excel', async () => { const file = psdScenario ? psdScenario.excel : (await dialog.showOpenDialog(win, { title: '导入 Excel', filters: [{ name: 'Excel', extensions: ['xlsx'] }], properties: ['openFile'] })).filePaths[0]; return file ? getPsd().authorize(file, 'xlsx') : null; });
+  handle('psd:choose-output', async () => { const folder = psdScenario ? psdScenario.output : (await dialog.showOpenDialog(win, { title: '保存位置', properties: ['openDirectory', 'createDirectory'] })).filePaths[0]; if (!folder) return null; if (psdScenario) fs.mkdirSync(folder, { recursive: true }); return getPsd().authorize(folder, 'directory'); });
+  ipcMain.on('psd:authorize-drop', (event, file) => { try { trusted(event); event.returnValue = { path: getPsd().authorize(file, 'psd') }; } catch (error) { event.returnValue = { error: error.message }; } });
+  handle('psd:run', request => { if (updates?.installing) throw new Error('正在准备安装更新'); return getPsd().run(request); });
   handle('psd:stop', () => getPsd().stop());
   handle('psd:open-output', async () => { if (getPsd().lastOutput) { const error = await shell.openPath(getPsd().lastOutput); if (error) throw new Error(error); } });
   handle('psd:open-logs', async () => { const error = await shell.openPath(getPsd().stateRoot); if (error) throw new Error(error); });
   handle('psd:export-logs', async () => {
     const result = await dialog.showSaveDialog(win, { title: '导出诊断日志', defaultPath: 'PicLingo-日志.zip', filters: [{ name: 'ZIP', extensions: ['zip'] }] });
     if (result.canceled || !result.filePath) return null;
-    return getPsd().run({ operation: 'logs', destination: result.filePath });
+    return getPsd().exportLogs(result.filePath);
   });
   handle('release:settings', () => getUpdates().settings());
   handle('release:configure', (repository, automatic) => getUpdates().configure(repository, automatic));
   handle('release:check', () => getUpdates().check());
-  handle('release:install', async () => {
-    if (backend?.busy || psd?.busy) throw new Error('请等待当前任务结束后更新');
-    const file = await getUpdates().download();
-    if (process.platform === 'win32') {
-      const child = spawn(file, [], { detached: true, stdio: 'ignore' });
-      await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); });
-      child.unref(); setTimeout(() => app.quit(), 250);
-    } else { const error = await shell.openPath(file); if (error) throw new Error(error); }
-    return { started: true };
-  });
+  handle('release:install', () => getUpdates().install());
+  handle('release:defer', () => getUpdates().defer());
+  handle('release:state', () => getUpdates().state);
   handle('piclingo:window-minimize', () => win.minimize());
   handle('piclingo:window-maximize', () => { if (win.isMaximized()) win.unmaximize(); else win.maximize(); return win.isMaximized(); });
   handle('piclingo:window-close', () => { setImmediate(() => win.close()); });
@@ -119,10 +122,10 @@ function registerIpc() {
     enabled = mode === 'transparent';
     return applyAppearance();
   });
-  handle('piclingo:translate', async request => rendererResult(await getBackend().translate(request)));
-  handle('piclingo:render', async request => rendererResult(await getBackend().render(request)));
+  handle('piclingo:translate', async request => { if (updates?.installing) throw new Error('正在准备安装更新'); return rendererResult(await getBackend().translate(request)); });
+  handle('piclingo:render', async request => { if (updates?.installing) throw new Error('正在准备安装更新'); return rendererResult(await getBackend().render(request)); });
   handle('piclingo:models', () => getBackend().models());
-  handle('piclingo:install-model', target => getBackend().install(target));
+  handle('piclingo:install-model', target => { if (updates?.installing) throw new Error('正在准备安装更新'); return getBackend().install(target); });
   handle('piclingo:release', ids => getBackend().release(ids));
   handle('piclingo:save-image', async id => {
     const record = getBackend().record(id);
@@ -145,6 +148,7 @@ function registerIpc() {
 async function createWindow() {
   appearance = desiredAppearance();
   const options = windowOptions({ appearance, preload: path.join(__dirname, 'preload.cjs'), icon: path.join(uiRoot, 'assets/app.ico'), smoke: Boolean(smokePath) });
+  options.webPreferences.devTools = testing && !smokePath;
   try { win = new BrowserWindow(options); }
   catch (error) {
     appearance = { ...appearance, mode: 'fallback', reason: 'window-material-failed', error: error.message };
@@ -216,7 +220,7 @@ async function createWindow() {
     fs.writeFileSync(smokePath, JSON.stringify({ version: app.getVersion(), electron: process.versions.electron, platform: process.platform, os: os.release(), appearance, renderer, dwm, workflow, visible: win.isVisible(), note: 'Native hidden-window test; no screenshot of desktop or wallpaper modification.' }, null, 2));
     win.destroy(); app.quit(); return;
   }
-  win.show();
+  win.show(); getUpdates().start();
 }
 app.whenReady().then(() => {
   if (process.platform === 'win32') app.setAppUserModelId('PicLingo.Desktop');
@@ -232,4 +236,5 @@ app.whenReady().then(() => {
   registerIpc(); return createWindow();
 }).catch(async error => { console.error(error); if (backend) await backend.dispose().catch(() => {}); if (psd) await psd.dispose().catch(() => {}); app.exit(1); });
 app.on('window-all-closed', () => app.quit());
-app.on('before-quit', event => { if ((!backend && !psd) || quitting) return; event.preventDefault(); quitting = true; Promise.all([backend?.dispose(), psd?.dispose()]).catch(() => {}).finally(() => app.quit()); });
+app.on('before-quit', event => { updates?.stop(); if ((!backend && !psd) || quitting) return; event.preventDefault(); quitting = true; Promise.all([backend?.dispose(), psd?.dispose()]).catch(() => {}).finally(() => app.quit()); });
+
