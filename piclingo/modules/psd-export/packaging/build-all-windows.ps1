@@ -1,4 +1,4 @@
-# 从源码构建两个后端和 NSIS 安装包，更新凭据通过环境变量提供。
+﻿# 从源码构建两个后端和 NSIS 安装包，更新凭据通过环境变量提供。
 $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
 function Checked([string]$program, [string[]]$arguments) {

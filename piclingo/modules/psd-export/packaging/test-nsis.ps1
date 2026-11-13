@@ -1,4 +1,4 @@
-# 在隔离目录验收 NSIS 全新安装、旧安装迁移和用户文件保留，恢复注册信息与快捷方式。
+﻿# 在隔离目录验收 NSIS 全新安装、旧安装迁移和用户文件保留，恢复注册信息与快捷方式。
 $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
 $version = (Get-Content -LiteralPath (Join-Path $root 'outputs\PicLingo-Liquid-Glass\package.json') -Raw | ConvertFrom-Json).version
