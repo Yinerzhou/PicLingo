@@ -1,39 +1,33 @@
-# 在新的源码目录构建两个引擎、Electron 客户端和安装包。
+# 从源码构建两个后端和 NSIS 安装包，更新凭据通过环境变量提供。
 $ErrorActionPreference = 'Stop'
-$workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
-$module = Join-Path $workspace 'modules\psd-export'
-$build = Join-Path $module 'release\windows-build'
-[IO.Directory]::CreateDirectory($build) | Out-Null
-function Invoke-Build([string]$Program, [string[]]$Arguments) {
-    & $Program @Arguments
-    if ($LASTEXITCODE -ne 0) { throw ('构建失败 ' + $Program + '，退出码 ' + $LASTEXITCODE) }
+$root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
+function Checked([string]$program, [string[]]$arguments) {
+    & $program @arguments
+    if ($LASTEXITCODE -ne 0) { throw ('构建失败 ' + $program + '，退出码 ' + $LASTEXITCODE) }
 }
-Invoke-Build 'python' @('-c', 'import sys; assert sys.version_info[:2] == (3,12), "需要 Python 3.12"')
-$ocrEnvironment = Join-Path $build 'ocr-venv'
-if (-not (Test-Path -LiteralPath $ocrEnvironment)) { Invoke-Build 'python' @('-m', 'venv', $ocrEnvironment) }
-$ocrPython = Join-Path $ocrEnvironment 'Scripts\python.exe'
-Invoke-Build $ocrPython @('-m', 'pip', 'install', '-r', (Join-Path $workspace 'work\requirements.txt'))
-$psdEnvironment = Join-Path $module '.venv'
-if (-not (Test-Path -LiteralPath $psdEnvironment)) { Invoke-Build 'python' @('-m', 'venv', $psdEnvironment) }
-$psdPython = Join-Path $psdEnvironment 'Scripts\python.exe'
-Invoke-Build $psdPython @('-m', 'pip', 'install', '-r', (Join-Path $module 'requirements.txt'), 'pyinstaller==6.19.0')
-Push-Location $workspace
+Push-Location $root
 try {
-    Invoke-Build $psdPython @('-c', 'import sys;sys.path.insert(0,"modules/psd-export/packaging");from models import ensure_models;ensure_models(".")')
-    Invoke-Build $ocrPython @('-m', 'PyInstaller', '--noconfirm', '--distpath', 'work/worker-dist', '--workpath', 'work/worker-build', 'work/PicLingoWorker.spec')
-    Invoke-Build $psdPython @('-m', 'PyInstaller', '--noconfirm', '--distpath', 'modules/psd-export/release/worker-dist', '--workpath', 'modules/psd-export/release/worker-build', 'modules/psd-export/packaging/psd.spec')
-    Invoke-Build 'npm.cmd' @('install', '--prefix', 'work/electron-runtime', 'electron@45.3.1', '--no-audit', '--no-fund')
-    $app = Join-Path $workspace 'work\desktop-dist-v1.2\PicLingo'
-    if (Test-Path -LiteralPath $app) {
-        $resolved = [IO.Path]::GetFullPath($app)
-        $allowed = [IO.Path]::GetFullPath((Join-Path $workspace 'work')) + '\'
-        if (-not $resolved.StartsWith($allowed, [StringComparison]::OrdinalIgnoreCase)) { throw '构建目录越界' }
-        if ((Get-Item -LiteralPath $resolved).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw '构建目录不能是链接' }
-        $backup = $resolved + '-previous-' + (Get-Date -Format 'yyyyMMdd-HHmmss')
-        if (-not $backup.StartsWith($allowed, [StringComparison]::OrdinalIgnoreCase)) { throw '备份路径越界' }
-        Move-Item -LiteralPath $resolved -Destination $backup
+    Checked 'python' @('-c','import sys; assert sys.version_info[:2] == (3,12), "需要 Python 3.12"')
+    $ocrEnvironment = Join-Path $root 'work\venv'
+    $psdEnvironment = Join-Path $root 'modules\psd-export\.venv'
+    foreach ($environment in @($ocrEnvironment,$psdEnvironment)) {
+        if (-not (Test-Path -LiteralPath $environment)) { Checked 'python' @('-m','venv',$environment) }
     }
-    Invoke-Build $psdPython @('modules/psd-export/packaging/build-windows.py')
-    & (Join-Path $PSScriptRoot 'installer\build.ps1') -WorkspaceRoot $workspace -AppDirectory $app -PayloadZip (Join-Path $module 'release\payload-v12.zip') -OutputPath (Join-Path $workspace 'outputs\PicLingo-Setup-1.2.0.exe')
-    if ($LASTEXITCODE -ne 0) { throw '安装包编译失败' }
+    $ocrPython = Join-Path $ocrEnvironment 'Scripts\python.exe'
+    $psdPython = Join-Path $psdEnvironment 'Scripts\python.exe'
+    Checked $ocrPython @('-m','pip','install','-r','work/requirements.txt')
+    Checked $psdPython @('-m','pip','install','-r','modules/psd-export/requirements.txt','pyinstaller==6.19.0')
+    Checked $psdPython @('-c','import sys;sys.path.insert(0,"modules/psd-export/packaging");from models import ensure_models;ensure_models(".")')
+    Checked $ocrPython @('-m','PyInstaller','--noconfirm','--distpath','work/worker-dist','--workpath','work/worker-build','work/PicLingoWorker.spec')
+    Checked $psdPython @('-m','PyInstaller','--noconfirm','--distpath','modules/psd-export/release/worker-dist','--workpath','modules/psd-export/release/worker-build','modules/psd-export/packaging/psd.spec')
+    $module = Join-Path $root 'modules\psd-export'
+    $uiModule = Join-Path $root 'outputs\PicLingo-Liquid-Glass\modules\psd-export'
+    foreach ($name in @('electron.cjs','security.cjs','packaging\updates.cjs','packaging\smoke.cjs')) { Copy-Item -LiteralPath (Join-Path $module $name) -Destination (Join-Path $uiModule $name) -Force }
+    Copy-Item -Path (Join-Path $module 'renderer\*') -Destination (Join-Path $uiModule 'renderer') -Force
+    Checked 'npm.cmd' @('ci','--prefix','outputs/PicLingo-Liquid-Glass','--ignore-scripts','--no-audit','--no-fund')
+    Checked 'npm.cmd' @('ci','--prefix','modules/psd-export/packaging','--ignore-scripts','--no-audit','--no-fund')
+    $maintenance = Join-Path $module 'release\PicLingoMaintenance.exe'
+    Checked (Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe') @('/nologo','/target:exe','/optimize+','/codepage:65001','/r:System.Web.Extensions.dll',('/out:' + $maintenance),(Join-Path $PSScriptRoot 'Maintenance.cs'))
+    Checked 'node' @('modules/psd-export/packaging/build-nsis.cjs')
 } finally { Pop-Location }
+

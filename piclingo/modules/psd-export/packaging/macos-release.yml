@@ -56,10 +56,14 @@ jobs:
             outputs/mac-${{ matrix.arch }}/*.dmg
             outputs/mac-${{ matrix.arch }}/*.zip
             outputs/mac-${{ matrix.arch }}/*.sha256.txt
+            outputs/mac-${{ matrix.arch }}/*.yml
+            outputs/mac-${{ matrix.arch }}/*.blockmap
             modules/psd-export/release/mac-${{ matrix.arch }}/smoke/
             piclingo/outputs/mac-${{ matrix.arch }}/*.dmg
             piclingo/outputs/mac-${{ matrix.arch }}/*.zip
             piclingo/outputs/mac-${{ matrix.arch }}/*.sha256.txt
+            piclingo/outputs/mac-${{ matrix.arch }}/*.yml
+            piclingo/outputs/mac-${{ matrix.arch }}/*.blockmap
             piclingo/modules/psd-export/release/mac-${{ matrix.arch }}/smoke/
           if-no-files-found: error
       - name: Upload diagnostics
@@ -73,3 +77,4 @@ jobs:
             piclingo/modules/psd-export/release/mac-${{ matrix.arch }}/**/warn-*.txt
             modules/psd-export/release/mac-${{ matrix.arch }}/**/*.log
           if-no-files-found: ignore
+

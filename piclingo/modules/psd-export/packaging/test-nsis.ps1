@@ -23,6 +23,9 @@ function Run([string]$file, [string[]]$arguments, [string]$label) {
 try {
     foreach ($mode in @('clean','migration')) {
         $install = Join-Path $report ($mode + '\PicLingo')
+        $legacyKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\PicLingo'
+        New-Item -Path $legacyKey -Force | Out-Null
+        Set-ItemProperty -LiteralPath $legacyKey -Name InstallLocation -Value $install
         if ($mode -eq 'migration') {
             Run (Join-Path $root 'outputs\PicLingo-Setup-1.2.0.exe') @('--silent','--no-launch','--no-register','--no-shortcuts','--dir',('"' + $install + '"')) 'legacy-install'
             $legacyKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\PicLingo'
@@ -30,7 +33,8 @@ try {
             Set-ItemProperty -LiteralPath $legacyKey -Name InstallLocation -Value $install
             [IO.File]::WriteAllText((Join-Path $install 'personal.txt'), 'keep personal content')
         }
-        Run (Join-Path $root 'outputs\windows-qa-1.3.0\PicLingo-Setup-1.3.0.exe') @('/S', ('/D=' + $install)) ($mode + '-install')
+        $installArguments = if ($mode -eq 'migration') { @('/S') } else { @('/S', ('/D=' + $install)) }
+        Run (Join-Path $root 'outputs\windows-qa-1.3.0\PicLingo-Setup-1.3.0.exe') $installArguments ($mode + '-install')
         if (-not (Test-Path -LiteralPath (Join-Path $install 'PicLingo.exe'))) { throw '安装路径不符' }
         $image = Join-Path $report ($mode + '-image\result.json')
         Run (Join-Path $install 'PicLingo.exe') @(('"--app-smoke=' + $image + '"')) ($mode + '-image')
