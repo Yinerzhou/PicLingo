@@ -17,7 +17,7 @@ function fixture(t, signed = true) {
   engine.checkForUpdates = async () => { engine.emit('update-available', info); return { updateInfo: info }; };
   engine.downloadUpdate = async () => { engine.emit('download-progress', { percent: 50 }); engine.emit('update-downloaded', info); };
   engine.verifySignature = async () => null;
-  engine.quitAndInstall = () => installed++;
+  engine.quitAndInstall = (silent, relaunch) => { assert.equal(silent, true); assert.equal(relaunch, true); installed++; };
   engine.downloadedUpdateHelper = { file };
   const updates = new Updates({ directory, version: '1.3.0', policy: { signed, publisherName: 'Test Publisher' }, factory: () => engine });
   updates.configure('owner/repo', true);
@@ -65,5 +65,11 @@ test('下载中断被捕获，下一轮可恢复', async t => {
   assert.equal((await updates.check()).phase, 'error'); assert.equal(updates.downloading, false);
   engine.downloadUpdate = async () => engine.emit('update-downloaded', { version: '1.3.1' });
   assert.equal((await updates.check()).phase, 'downloaded');
+});
+test('延期选择在新会话加载，当前会话检查不会自动安装', async t => {
+  const { updates, engine, directory, installed } = fixture(t);
+  await updates.check(); updates.defer(); await updates.check(); assert.equal(installed(), 0);
+  const next = new Updates({ directory, version: '1.3.0', policy: { signed: true, publisherName: 'Test Publisher' }, factory: () => engine });
+  await next.check(); assert.equal(installed(), 1); assert.equal(next.deferredVersion(), null);
 });
 

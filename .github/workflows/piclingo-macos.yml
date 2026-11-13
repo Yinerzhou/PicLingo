@@ -2,6 +2,7 @@ name: Build PicLingo macOS
 on:
   push:
     branches: ['codex/piclingo-mac-*']
+    paths-ignore: ['.github/workflows/piclingo-repack.yml']
   workflow_dispatch:
     inputs:
       signed:
@@ -54,17 +55,24 @@ jobs:
           name: PicLingo-mac-${{ matrix.arch }}
           path: |
             outputs/mac-${{ matrix.arch }}/*.dmg
-            outputs/mac-${{ matrix.arch }}/*.zip
-            outputs/mac-${{ matrix.arch }}/*.sha256.txt
-            outputs/mac-${{ matrix.arch }}/*.yml
-            outputs/mac-${{ matrix.arch }}/*.blockmap
+            outputs/mac-${{ matrix.arch }}/*.dmg.sha256.txt
             modules/psd-export/release/mac-${{ matrix.arch }}/smoke/
             piclingo/outputs/mac-${{ matrix.arch }}/*.dmg
+            piclingo/outputs/mac-${{ matrix.arch }}/*.dmg.sha256.txt
+            piclingo/modules/psd-export/release/mac-${{ matrix.arch }}/smoke/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PicLingo-update-${{ matrix.arch }}
+          path: |
+            outputs/mac-${{ matrix.arch }}/*.zip
+            outputs/mac-${{ matrix.arch }}/*.zip.sha256.txt
+            outputs/mac-${{ matrix.arch }}/*.yml
+            outputs/mac-${{ matrix.arch }}/*.blockmap
             piclingo/outputs/mac-${{ matrix.arch }}/*.zip
-            piclingo/outputs/mac-${{ matrix.arch }}/*.sha256.txt
+            piclingo/outputs/mac-${{ matrix.arch }}/*.zip.sha256.txt
             piclingo/outputs/mac-${{ matrix.arch }}/*.yml
             piclingo/outputs/mac-${{ matrix.arch }}/*.blockmap
-            piclingo/modules/psd-export/release/mac-${{ matrix.arch }}/smoke/
           if-no-files-found: error
       - name: Upload diagnostics
         if: always()
