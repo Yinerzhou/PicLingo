@@ -1,3 +1,23 @@
+!define /redef APP_ID "PicLingo.Desktop"
+
+!macro customHeader
+  !ifndef BUILD_UNINSTALLER
+    Section "-安装预检"
+      InitPluginsDir
+      File /oname=$PLUGINSDIR\PicLingoPreflight.exe "${PROJECT_DIR}\..\release\PicLingoMaintenance.exe"
+      File /oname=$PLUGINSDIR\incoming.json "${PROJECT_DIR}\..\release\nsis-incoming.json"
+      nsExec::ExecToStack '"$PLUGINSDIR\PicLingoPreflight.exe" preflight "$INSTDIR" "$PLUGINSDIR\incoming.json"'
+      Pop $R0
+      Pop $R1
+      ${If} $R0 != 0
+        MessageBox MB_ICONSTOP "$R1" /SD IDOK
+        SetErrorLevel 2
+        Abort
+      ${EndIf}
+    SectionEnd
+  !endif
+!macroend
+
 !macro customInit
   !insertmacro GetDParameter $R3
   ${If} $R3 != ""

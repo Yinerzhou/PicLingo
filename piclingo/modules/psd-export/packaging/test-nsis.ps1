@@ -1,6 +1,7 @@
 # 在隔离目录验收 NSIS 全新安装、旧安装迁移和用户文件保留，恢复注册信息与快捷方式。
 $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
+$version = (Get-Content -LiteralPath (Join-Path $root 'outputs\PicLingo-Liquid-Glass\package.json') -Raw | ConvertFrom-Json).version
 $report = Join-Path $root ('modules\psd-export\release\nsis-qa-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
 [IO.Directory]::CreateDirectory($report) | Out-Null
 $guid = & node -e 'const {UUID}=require("./modules/psd-export/packaging/node_modules/builder-util-runtime");process.stdout.write(UUID.v5("com.piclingo.desktop",UUID.parse("50e065bc-3134-11e6-9bab-38c9862bdaf3")))'
@@ -21,6 +22,13 @@ function Run([string]$file, [string[]]$arguments, [string]$label) {
     Write-Output ($label + ' PASS')
 }
 try {
+    $foreign = Join-Path $report 'foreign\PicLingo'
+    [IO.Directory]::CreateDirectory($foreign) | Out-Null
+    $foreignFile = Join-Path $foreign 'PicLingo.exe'
+    [IO.File]::WriteAllText($foreignFile, 'personal executable placeholder')
+    $negative = Start-Process -FilePath (Join-Path $root ('outputs\windows-' + $version + '\PicLingo-Setup-' + $version + '.exe')) -ArgumentList @('/S',('/D=' + $foreign)) -PassThru -Wait -WindowStyle Hidden
+    if ($negative.ExitCode -eq 0 -or [IO.File]::ReadAllText($foreignFile) -ne 'personal executable placeholder') { throw '非产品目录保护失败' }
+    Write-Output 'unmanaged directory and collision protection PASS'
     foreach ($mode in @('clean','migration','nsis-upgrade')) {
         $install = Join-Path $report ($mode + '\PicLingo')
         $legacyKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\PicLingo'
@@ -33,7 +41,7 @@ try {
             Set-ItemProperty -LiteralPath $legacyKey -Name InstallLocation -Value $install
             [IO.File]::WriteAllText((Join-Path $install 'personal.txt'), 'keep personal content')
         }
-        $installer = Join-Path $root 'outputs\windows-1.3.0\PicLingo-Setup-1.3.0.exe'
+        $installer = Join-Path $root ('outputs\windows-' + $version + '\PicLingo-Setup-' + $version + '.exe')
         $installArguments = if ($mode -eq 'migration') { @('/S') } else { @('/S', ('/D=' + $install)) }
         if ($mode -eq 'nsis-upgrade') {
             Run $installer $installArguments 'nsis-first-install'
@@ -47,7 +55,7 @@ try {
         $image = Join-Path $report ($mode + '-image\result.json')
         Run (Join-Path $install 'PicLingo.exe') @(('"--app-smoke=' + $image + '"')) ($mode + '-image')
         $imageResult = Get-Content -LiteralPath $image -Raw | ConvertFrom-Json
-        if ($imageResult.version -ne '1.3.0' -or -not $imageResult.workflow.editedImageChanged) { throw '图片回归失败' }
+        if ($imageResult.version -ne $version -or -not $imageResult.workflow.editedImageChanged) { throw '图片回归失败' }
         $scenario = @{ files=@((Join-Path $root 'modules\psd-export\samples\测试 样本\多层 测试 3层.psd')); excel=Join-Path $root 'modules\psd-export\samples\测试 样本\翻译 模板.xlsx'; output=Join-Path $report ($mode + '-psd\output'); result=Join-Path $report ($mode + '-psd\result.json') }
         $scenarioFile = Join-Path $report ($mode + '-scenario.json')
         [IO.File]::WriteAllText($scenarioFile, ($scenario | ConvertTo-Json -Depth 4))

@@ -72,4 +72,15 @@ test('延期选择在新会话加载，当前会话检查不会自动安装', as
   const next = new Updates({ directory, version: '1.3.0', policy: { signed: true, publisherName: 'Test Publisher' }, factory: () => engine });
   await next.check(); assert.equal(installed(), 1); assert.equal(next.deferredVersion(), null);
 });
+test('切换提供方复用更新器并关闭旧 Mac 本地服务', async t => {
+  const { updates, engine } = fixture(t);
+  let closed = 0, selected;
+  engine.setFeedURL = value => { selected = value; };
+  engine.closeServerIfExists = () => closed++;
+  await updates.check();
+  updates.configure({ provider: 'generic', url: 'https://updates.example.com/stable/', automatic: true });
+  assert.equal(updates.engine(), engine); assert.equal(closed, 1); assert.equal(selected.provider, 'generic');
+  updates.configure({ provider: 'generic', url: '', automatic: true });
+  assert.equal(closed, 2); assert.equal((await updates.check()).configured, false);
+});
 

@@ -89,6 +89,7 @@ def main():
         "directories": {"app": str(app_dir), "output": str(output)},
         "files": ["**/*", "!tests/**"],
         "afterPack": str(MODULE / "packaging/after-pack.cjs"),
+        "releaseInfo": {"releaseNotesFile": str(MODULE / "packaging/release-notes.md")},
         "extraResources": [
             {"from": str(build / "ocr-dist/PicLingoWorker"), "to": "backend"},
             {"from": str(build / "psd-dist/PicLingoPSD"), "to": "psd"},

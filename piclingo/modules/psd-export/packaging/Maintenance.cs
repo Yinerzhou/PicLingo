@@ -27,9 +27,33 @@ internal static class Maintenance
     {
         try
         {
-            if (args.Length != 2 || !new[] { "migrate", "uninstall" }.Contains(args[0])) throw new Exception("参数无效");
+            if (args.Length < 2 || !new[] { "migrate", "uninstall", "preflight" }.Contains(args[0])) throw new Exception("参数无效");
             string root = Path.GetFullPath(args[1]).TrimEnd(Path.DirectorySeparatorChar);
             if (root.Length < 5 || root == Path.GetPathRoot(root).TrimEnd(Path.DirectorySeparatorChar)) throw new Exception("安装目录无效");
+            if (args[0] == "preflight")
+            {
+                if (args.Length != 3) throw new Exception("预检参数无效");
+                var incoming = Json.Deserialize<string[]>(File.ReadAllText(args[2]));
+                var previous = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                string managed = Child(root, ".piclingo-managed.json");
+                string legacy = Child(root, ".piclingo-install.json");
+                if (File.Exists(managed)) previous.UnionWith(Json.Deserialize<string[]>(File.ReadAllText(managed)));
+                else if (File.Exists(legacy))
+                {
+                    var record = Json.Deserialize<Dictionary<string, object>>(File.ReadAllText(legacy));
+                    if (Convert.ToString(record["ProductId"]) != "PicLingo.ImageTranslator.Desktop.7F96C460" ||
+                        !String.Equals(Path.GetFullPath(Convert.ToString(record["InstallPath"])).TrimEnd('\\'), root, StringComparison.OrdinalIgnoreCase)) throw new Exception("旧安装身份不匹配");
+                    previous.UnionWith(((System.Collections.IEnumerable)record["Files"]).Cast<object>().Select(Convert.ToString));
+                }
+                else if (Directory.Exists(root) && Directory.EnumerateFileSystemEntries(root).Any()) throw new Exception("安装位置已有个人文件，请选择空文件夹或原 PicLingo 安装目录");
+                foreach (string name in incoming)
+                {
+                    string target = Child(root, name);
+                    if (Directory.Exists(target) || (File.Exists(target) && !previous.Contains(name))) throw new Exception("安装文件与个人文件冲突：" + name);
+                }
+                return 0;
+            }
+            if (args.Length != 2) throw new Exception("参数无效");
             var owned = Json.Deserialize<string[]>(File.ReadAllText(Child(root, ".piclingo-managed.json")));
             IEnumerable<string> remove = owned;
             if (args[0] == "migrate")

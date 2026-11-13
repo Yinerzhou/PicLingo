@@ -57,7 +57,11 @@ class Updates {
     const value = configuration(input, automatic);
     fs.writeFileSync(path.join(this.directory, 'settings.json.tmp'), JSON.stringify(value));
     fs.renameSync(path.join(this.directory, 'settings.json.tmp'), path.join(this.directory, 'settings.json'));
-    this.updater?.removeAllListeners(); this.updater = null;
+    if (this.updater?.setFeedURL) {
+      this.updater.closeServerIfExists?.();
+      const options = this.provider();
+      if (options) this.updater.setFeedURL(options);
+    } else { this.updater?.removeAllListeners(); this.updater = null; }
     this.publish({ phase: 'idle', message: '更新源已保存', notes: '', progress: 0 });
     return value;
   }

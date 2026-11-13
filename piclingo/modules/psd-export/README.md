@@ -1,4 +1,8 @@
-# PSD 出图 · 1.2.0
+# PSD 出图 · 1.3.0
+
+1.3.0 完成桌面请求授权、日志保存边界、更新签名策略及 NSIS 迁移。当前安全、构建、发布与限制见项目 `outputs/PicLingo-1.3.0-更新与安全加固说明.md` 和同版验证报告。完整构建使用 `packaging/build-all-windows.ps1` 或 `packaging/build-mac.py`。
+
+以下 1.2.0 与阶段 1 内容保留为历史说明。
 
 ## 当前版本
 
