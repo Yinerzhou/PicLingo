@@ -21,7 +21,7 @@ function Run([string]$file, [string[]]$arguments, [string]$label) {
     Write-Output ($label + ' PASS')
 }
 try {
-    foreach ($mode in @('clean','migration')) {
+    foreach ($mode in @('clean','migration','nsis-upgrade')) {
         $install = Join-Path $report ($mode + '\PicLingo')
         $legacyKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\PicLingo'
         New-Item -Path $legacyKey -Force | Out-Null
@@ -33,9 +33,17 @@ try {
             Set-ItemProperty -LiteralPath $legacyKey -Name InstallLocation -Value $install
             [IO.File]::WriteAllText((Join-Path $install 'personal.txt'), 'keep personal content')
         }
+        $installer = Join-Path $root 'outputs\windows-1.3.0\PicLingo-Setup-1.3.0.exe'
         $installArguments = if ($mode -eq 'migration') { @('/S') } else { @('/S', ('/D=' + $install)) }
-        Run (Join-Path $root 'outputs\windows-qa-1.3.0\PicLingo-Setup-1.3.0.exe') $installArguments ($mode + '-install')
+        if ($mode -eq 'nsis-upgrade') {
+            Run $installer $installArguments 'nsis-first-install'
+            [IO.File]::WriteAllText((Join-Path $install 'personal.txt'), 'keep personal content')
+        }
+        Run $installer $installArguments ($mode + '-install')
         if (-not (Test-Path -LiteralPath (Join-Path $install 'PicLingo.exe'))) { throw '安装路径不符' }
+        $testMarker = Join-Path $install 'resources\piclingo-test-build.json'
+        if (Test-Path -LiteralPath $testMarker) { throw '正式安装包含测试标记' }
+        [IO.File]::WriteAllText($testMarker, '{}')
         $image = Join-Path $report ($mode + '-image\result.json')
         Run (Join-Path $install 'PicLingo.exe') @(('"--app-smoke=' + $image + '"')) ($mode + '-image')
         $imageResult = Get-Content -LiteralPath $image -Raw | ConvertFrom-Json
@@ -46,6 +54,7 @@ try {
         Run (Join-Path $install 'PicLingo.exe') @(('"--psd-smoke=' + $scenarioFile + '"')) ($mode + '-psd')
         $psd = Get-Content -LiteralPath $scenario.result -Raw | ConvertFrom-Json
         if ($psd.status -notlike '*成功 1*失败 0*' -or -not $psd.imagePageRestored) { throw 'PSD 回归失败' }
+        Remove-Item -LiteralPath $testMarker
         [IO.File]::WriteAllText((Join-Path $install 'personal.txt'), 'keep personal content')
         Run (Join-Path $install 'Uninstall PicLingo.exe') @('/S') ($mode + '-uninstall')
         $deadline = [DateTime]::UtcNow.AddSeconds(20)

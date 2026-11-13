@@ -56,3 +56,4 @@ try {
         [void][Runtime.InteropServices.Marshal]::ReleaseComObject($photoshop)
     }
 }
+
