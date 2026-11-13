@@ -22,6 +22,7 @@ build({ projectDir: __dirname, targets: require('electron-builder').Platform.WIN
     ? { provider: 'generic', url: process.env.PICLINGO_UPDATE_URL }
     : { provider: 'github', owner: require('./release-channel.json').repository.split('/')[0], repo: require('./release-channel.json').repository.split('/')[1] }],
   electronVersion: '45.3.1',
+  electronDist: process.env.PICLINGO_ELECTRON_DIST || undefined,
   releaseInfo: { releaseNotesFile: path.join(__dirname, 'release-notes.md') }
 }, publish: 'never' }).catch(error => { console.error(error); process.exitCode = 1; });
 
