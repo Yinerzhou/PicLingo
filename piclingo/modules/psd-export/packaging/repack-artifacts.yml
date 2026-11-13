@@ -1,0 +1,50 @@
+name: Split PicLingo delivery artifacts
+on:
+  push:
+    branches: ['codex/piclingo-mac-*']
+    paths: ['.github/workflows/piclingo-repack.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  repack:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, x64]
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            for (let attempt = 0; attempt < 60; attempt++) {
+              const result = await github.rest.actions.listWorkflowRunArtifacts({ ...context.repo, run_id: 43362317342 });
+              if (result.data.artifacts.some(item => item.name === 'PicLingo-mac-${{ matrix.arch }}')) return;
+              await new Promise(resolve => setTimeout(resolve, 15000));
+            }
+            throw new Error('上游架构产物未生成');
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 43362317342
+          name: PicLingo-mac-${{ matrix.arch }}
+          path: source
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PicLingo-install-${{ matrix.arch }}
+          path: |
+            source/piclingo/outputs/mac-${{ matrix.arch }}/*.dmg
+            source/piclingo/outputs/mac-${{ matrix.arch }}/*.dmg.sha256.txt
+            source/piclingo/modules/psd-export/release/mac-${{ matrix.arch }}/smoke/result.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PicLingo-update-${{ matrix.arch }}
+          path: |
+            source/piclingo/outputs/mac-${{ matrix.arch }}/*.zip
+            source/piclingo/outputs/mac-${{ matrix.arch }}/*.zip.sha256.txt
+            source/piclingo/outputs/mac-${{ matrix.arch }}/*.yml
+            source/piclingo/outputs/mac-${{ matrix.arch }}/*.blockmap
+          if-no-files-found: error
+

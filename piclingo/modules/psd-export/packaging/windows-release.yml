@@ -1,0 +1,79 @@
+name: Release PicLingo Windows
+on:
+  push:
+    tags: ['piclingo-v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: piclingo-windows-release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare and validate release credentials
+        shell: pwsh
+        env:
+          PICLINGO_UPDATE_PRIVATE_KEY: ${{ secrets.PICLINGO_UPDATE_PRIVATE_KEY }}
+          GH_TOKEN: ${{ secrets.PICLINGO_RELEASE_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $project = if (Test-Path piclingo) { 'piclingo' } else { '.' }
+          "PROJECT=$project" >> $env:GITHUB_ENV
+          Set-Location $project
+          if (-not $env:PICLINGO_UPDATE_PRIVATE_KEY -or -not $env:GH_TOKEN) { throw '请配置更新签名私钥和公开发布仓库访问令牌' }
+          node -e 'const c=require("crypto"),f=require("fs");const a=c.createPublicKey(c.createPrivateKey(process.env.PICLINGO_UPDATE_PRIVATE_KEY)).export({type:"spki",format:"pem"});if(a!==f.readFileSync("modules/psd-export/packaging/update-public-key.pem","utf8"))throw Error("发布私钥与客户端公钥不匹配");'
+          $repo = (Get-Content modules/psd-export/packaging/release-channel.json -Raw | ConvertFrom-Json).repository
+          $visibility = gh api "repos/$repo" --jq '.visibility'
+          if ($LASTEXITCODE -ne 0 -or $visibility -ne 'public') { throw '更新发布仓库必须存在且可公开下载' }
+          $version = (Get-Content outputs/PicLingo-Liquid-Glass/package.json -Raw | ConvertFrom-Json).version
+          if ('${{ github.ref_type }}' -eq 'tag' -and '${{ github.ref_name }}' -ne "piclingo-v$version") { throw '标签与应用版本不一致' }
+          "VERSION=$version" >> $env:GITHUB_ENV
+          "RELEASE_REPO=$repo" >> $env:GITHUB_ENV
+      - name: Build and test
+        shell: pwsh
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          PICLINGO_PUBLISHER: ${{ vars.PICLINGO_PUBLISHER }}
+        run: |
+          Set-Location $env:PROJECT
+          & modules/psd-export/packaging/build-all-windows.ps1
+          if ($LASTEXITCODE -ne 0) { throw '构建失败' }
+          node --test modules/psd-export/tests/updates.test.cjs modules/psd-export/tests/release-signature.test.cjs
+          if ($LASTEXITCODE -ne 0) { throw '更新测试失败' }
+      - name: Sign metadata and publish
+        shell: pwsh
+        env:
+          PICLINGO_UPDATE_PRIVATE_KEY: ${{ secrets.PICLINGO_UPDATE_PRIVATE_KEY }}
+          GH_TOKEN: ${{ secrets.PICLINGO_RELEASE_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-Location $env:PROJECT
+          $folder = "outputs/windows-$env:VERSION"
+          node modules/psd-export/packaging/sign-release.cjs $folder
+          if ($LASTEXITCODE -ne 0) { throw '更新清单签名失败' }
+          $tag = "v$env:VERSION"
+          gh release view $tag --repo $env:RELEASE_REPO 2>$null
+          if ($LASTEXITCODE -eq 0) { throw '版本已存在，请增加版本号，禁止覆盖已发布更新' }
+          gh release create $tag --repo $env:RELEASE_REPO --draft --title "PicLingo $env:VERSION" --notes-file modules/psd-export/packaging/release-notes.md "$folder/PicLingo-Setup-$env:VERSION.exe" "$folder/PicLingo-Setup-$env:VERSION.exe.blockmap" "$folder/latest.yml"
+          if ($LASTEXITCODE -ne 0) { throw '更新上传失败' }
+          gh release edit $tag --repo $env:RELEASE_REPO --draft=false --latest
+          if ($LASTEXITCODE -ne 0) { throw '发布失败，草稿已保留' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-update-metadata
+          path: |
+            piclingo/outputs/windows-*/latest.yml
+            outputs/windows-*/latest.yml
+          if-no-files-found: ignore
+

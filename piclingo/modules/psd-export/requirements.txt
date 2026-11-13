@@ -1,0 +1,4 @@
+# 【待 Mac 实机验证】仅安装到本模块的独立环境。
+openpyxl==3.1.5
+et-xmlfile==2.0.0
+fonttools==4.61.1
