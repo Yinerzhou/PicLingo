@@ -89,6 +89,7 @@ class Updates {
     if (process.platform === 'win32' && this.policy.publisherName) {
       // 固定本机发行策略中的身份，更换下载源仍执行相同身份验证。
       updater.configOnDisk = { value: Promise.resolve({ publisherName: this.policy.publisherName }) };
+      if (!this.factory) updater.verifyUpdateCodeSignature = require('./verify-signature.cjs');
     }
     updater.on('error', error => this.error(error));
     updater.on('update-available', info => {
