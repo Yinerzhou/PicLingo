@@ -4,7 +4,7 @@ on:
     tags: ['piclingo-v*']
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 concurrency:
   group: piclingo-windows-release
   cancel-in-progress: false
@@ -23,13 +23,13 @@ jobs:
         shell: pwsh
         env:
           PICLINGO_UPDATE_PRIVATE_KEY: ${{ secrets.PICLINGO_UPDATE_PRIVATE_KEY }}
-          GH_TOKEN: ${{ secrets.PICLINGO_RELEASE_TOKEN }}
+          GH_TOKEN: ${{ secrets.PICLINGO_RELEASE_TOKEN || github.token }}
         run: |
           $ErrorActionPreference = 'Stop'
           $project = if (Test-Path piclingo) { 'piclingo' } else { '.' }
           "PROJECT=$project" >> $env:GITHUB_ENV
           Set-Location $project
-          if (-not $env:PICLINGO_UPDATE_PRIVATE_KEY -or -not $env:GH_TOKEN) { throw '请配置更新签名私钥和公开发布仓库访问令牌' }
+          if (-not $env:PICLINGO_UPDATE_PRIVATE_KEY -or -not $env:GH_TOKEN) { throw '请配置更新签名私钥' }
           node -e 'const c=require("crypto"),f=require("fs");const a=c.createPublicKey(c.createPrivateKey(process.env.PICLINGO_UPDATE_PRIVATE_KEY)).export({type:"spki",format:"pem"});if(a!==f.readFileSync("modules/psd-export/packaging/update-public-key.pem","utf8"))throw Error("发布私钥与客户端公钥不匹配");'
           $repo = (Get-Content modules/psd-export/packaging/release-channel.json -Raw | ConvertFrom-Json).repository
           $visibility = gh api "repos/$repo" --jq '.visibility'
@@ -54,7 +54,7 @@ jobs:
         shell: pwsh
         env:
           PICLINGO_UPDATE_PRIVATE_KEY: ${{ secrets.PICLINGO_UPDATE_PRIVATE_KEY }}
-          GH_TOKEN: ${{ secrets.PICLINGO_RELEASE_TOKEN }}
+          GH_TOKEN: ${{ secrets.PICLINGO_RELEASE_TOKEN || github.token }}
         run: |
           $ErrorActionPreference = 'Stop'
           Set-Location $env:PROJECT
