@@ -156,7 +156,7 @@ class Updates {
       if (this.busy()) throw new Error('请等待当前任务结束');
       await this.dispose();
       fs.rmSync(path.join(this.directory, 'deferred.json'), { force: true });
-      this.log('info', '开始安装已验证更新'); this.engine().quitAndInstall(false, true);
+      this.log('info', '开始安装已验证更新'); this.engine().quitAndInstall(true, true);
       return { started: true };
     } catch (error) { this.installing = false; this.error(error); throw error; }
   }
